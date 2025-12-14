@@ -13,7 +13,7 @@ namespace RimTalkExpandActions.Memory.Utils
     public static class CrossModRecruitRuleInjector
     {
         private const string RECRUIT_RULE_ID = "expand-action-recruit";
-        private const string SYSTEM_RULE_TAG = "对话行为";
+        private const string RECRUIT_RULE_TAG = "招募";
         
         private const string TARGET_MOD_NAMESPACE = "RimTalk.Memory";
         private const string MEMORY_MANAGER_TYPE = "MemoryManager";
@@ -243,10 +243,8 @@ namespace RimTalkExpandActions.Memory.Utils
                 // 创建实例
                 object entry = Activator.CreateInstance(entryType);
 
-                // 设置属性
+                // 设置基本属性
                 SetProperty(entry, "id", RECRUIT_RULE_ID);
-                SetProperty(entry, "tag", SYSTEM_RULE_TAG);
-                SetProperty(entry, "importance", importance);
                 SetProperty(entry, "isEnabled", true);
                 SetProperty(entry, "targetPawnId", -1);
 
@@ -260,9 +258,10 @@ namespace RimTalkExpandActions.Memory.Utils
                 }
                 SetProperty(entry, "keywords", keywordsList);
 
-                // 设置内容
-                string content = string.IsNullOrEmpty(customContent) ? GetDefaultRecruitRuleContent() : customContent;
-                SetProperty(entry, "content", content);
+                // 格式化内容为 [tag|importance]content
+                string ruleContent = string.IsNullOrEmpty(customContent) ? GetDefaultRecruitRuleContent() : customContent;
+                string formattedContent = $"[{RECRUIT_RULE_TAG}|{importance:F1}]{ruleContent}";
+                SetProperty(entry, "content", formattedContent);
 
                 return entry;
             }
@@ -469,11 +468,13 @@ namespace RimTalkExpandActions.Memory.Utils
 
                 // 设置基本属性
                 SetProperty(entry, "id", ruleId);
-                SetProperty(entry, "tag", tag ?? "对话行为");
-                SetProperty(entry, "importance", importance);
                 SetProperty(entry, "isEnabled", true);
                 SetProperty(entry, "targetPawnId", -1);
-                SetProperty(entry, "content", content);
+
+                // 格式化内容为 [tag|importance]content
+                string tagText = tag ?? "对话行为";
+                string formattedContent = $"[{tagText}|{importance:F1}]{content}";
+                SetProperty(entry, "content", formattedContent);
 
                 // 设置关键词列表
                 if (keywords != null && keywords.Length > 0)
