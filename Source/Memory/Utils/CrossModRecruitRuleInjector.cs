@@ -280,18 +280,45 @@ namespace RimTalkExpandActions.Memory.Utils
         {
             try
             {
-                MethodInfo addMethod = commonKnowledge.GetType().GetMethod("AddEntry");
+                // ???entry?????
+                Type entryType = entry.GetType();
+                
+                // ?????????????????????
+                MethodInfo addMethod = commonKnowledge.GetType().GetMethod(
+                    "AddEntry",
+                    BindingFlags.Public | BindingFlags.Instance,
+                    null,
+                    new Type[] { entryType },
+                    null
+                );
+                
+                if (addMethod == null)
+                {
+                    // ???AddEntry??????????
+                    var allMethods = commonKnowledge.GetType().GetMethods()
+                        .Where(m => m.Name == "AddEntry")
+                        .ToArray();
+                    
+                    if (allMethods.Length > 0)
+                    {
+                        // ??????????????
+                        addMethod = allMethods[0];
+                        Log.Warning($"[RimTalk-ExpandActions] ??????AddEntry????: {addMethod.GetParameters()[0].ParameterType.Name}");
+                    }
+                }
+                
                 if (addMethod != null)
                 {
                     addMethod.Invoke(commonKnowledge, new object[] { entry });
                     return true;
                 }
-
+                
+                Log.Error("[RimTalk-ExpandActions] ¦Ä???AddEntry????");
                 return false;
             }
             catch (Exception ex)
             {
-                Log.Error($"[RimTalk-ExpandActions] AddEntryToCommonKnowledge Ê§°Ü: {ex.Message}");
+                Log.Error($"[RimTalk-ExpandActions] AddEntryToCommonKnowledge ???: {ex.Message}\n{ex.StackTrace}");
                 return false;
             }
         }

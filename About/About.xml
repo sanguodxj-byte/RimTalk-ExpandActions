@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-    <name>RimTalk-ExpandActions</name>
+    <name>RimTalk - Expand Actions</name>
     <author>Sanguo</author>
     <packageId>sanguo.rimtalk.expandactions</packageId>
     <supportedVersions>
@@ -82,7 +82,7 @@ v1.0.0 (初始版本)
             <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
         </li>
         <li>
-            <packageId>sanguodxj.rimtalk</packageId>
+            <packageId>cj.rimtalk</packageId>
             <displayName>RimTalk</displayName>
             <steamWorkshopUrl>steam://url/CommunityFilePage/0</steamWorkshopUrl>
         </li>
