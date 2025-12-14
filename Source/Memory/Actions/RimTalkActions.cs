@@ -15,60 +15,97 @@ namespace RimTalkExpandActions.Memory.Actions
     {
         /// <summary>
         /// 执行招募逻辑，将目标 NPC 加入玩家派系
+        /// 增强版本：完整日志记录、异常隔离、逻辑前置
         /// </summary>
         /// <param name="pawnToRecruit">要招募的 NPC</param>
         /// <param name="recruiter">执行招募的玩家角色（可选）</param>
         public static void ExecuteRecruit(Pawn pawnToRecruit, Pawn recruiter = null)
         {
+            // --- 1. 参数验证与前置检查 ---
+            if (pawnToRecruit == null)
+            {
+                Log.Error("[RimTalk-ExpandActions] 招募失败: pawnToRecruit 为 null");
+                return;
+            }
+            
+            // 如果已经死亡或已经是玩家派系，则提前退出
+            if (pawnToRecruit.Dead)
+            {
+                Log.Warning($"[RimTalk-ExpandActions] 招募失败: {pawnToRecruit.Name} 已死亡");
+                return;
+            }
+            if (pawnToRecruit.Faction == Faction.OfPlayer)
+            {
+                Log.Warning($"[RimTalk-ExpandActions] 招募失败: {pawnToRecruit.Name} 已经是玩家派系成员");
+                return;
+            }
+            
+            // 记录原派系名称
+            string oldFactionName = pawnToRecruit.Faction?.Name ?? "未知派系";
+            
             try
             {
-                // 1. 检查参数有效性
-                if (pawnToRecruit == null)
-                {
-                    Log.Error("[RimTalk-ExpandMemory] ExecuteRecruit: pawnToRecruit 为 null");
-                    return;
-                }
-
-                if (pawnToRecruit.Dead)
-                {
-                    Log.Warning($"[RimTalk-ExpandMemory] ExecuteRecruit: {pawnToRecruit.Name} 已死亡，无法招募");
-                    return;
-                }
-
-                if (pawnToRecruit.Faction == Faction.OfPlayer)
-                {
-                    Log.Warning($"[RimTalk-ExpandMemory] ExecuteRecruit: {pawnToRecruit.Name} 已经是玩家派系成员");
-                    return;
-                }
-
-                // 记录原派系名称（用于信件）
-                string oldFactionName = pawnToRecruit.Faction?.Name ?? "未知派系";
-
-                // 2. 将 NPC 加入玩家派系
+                Log.Message($"[RimTalk-ExpandActions] 尝试通过对话招募: {pawnToRecruit.Name.ToStringShort}. 旧派系: {oldFactionName}");
+                
+                // --- 2. 核心操作：更改派系（必须成功） ---
                 pawnToRecruit.SetFaction(Faction.OfPlayer, recruiter);
+                Log.Message($"[RimTalk-ExpandActions] SetFaction 调用完成。当前派系: {pawnToRecruit.Faction?.Name ?? "null"}");
 
-                // 3. 清除旧的 AI 逻辑（Lord）
+                // --- 3. 危险操作：清除旧 Lord 逻辑（隔离保护） ---
                 Lord lord = pawnToRecruit.GetLord();
                 if (lord != null)
                 {
-                    // RimWorld 1.6 可能使用不同的枚举值
-                    lord.Notify_PawnLost(pawnToRecruit, PawnLostCondition.ChangedFaction);
+                    try
+                    {
+                        // 使用 Try/Catch 保护，防止此处的 Mod 冲突或游戏版本差异导致程序中断。
+                        lord.Notify_PawnLost(pawnToRecruit, PawnLostCondition.ChangedFaction);
+                        Log.Message($"[RimTalk-ExpandActions] 成功移除旧 Lord 逻辑。");
+                    }
+                    catch (Exception ex)
+                    {
+                        // 仅记录错误，不中断招募流程
+                        Log.Error($"[RimTalk-ExpandActions] 移除 Lord 逻辑失败 (不致命): {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Log.Message($"[RimTalk-ExpandActions] {pawnToRecruit.Name.ToStringShort} 没有 Lord，跳过清理。");
                 }
 
-                // 4. 清除客人/囚犯状态
+                // --- 4. 清除客人/囚犯状态 ---
                 if (pawnToRecruit.guest != null)
                 {
-                    pawnToRecruit.guest.SetGuestStatus(null);
+                    try
+                    {
+                        pawnToRecruit.guest.SetGuestStatus(null);
+                        Log.Message($"[RimTalk-ExpandActions] 清除 {pawnToRecruit.Name.ToStringShort} 的客人/囚犯状态。");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"[RimTalk-ExpandActions] 清除 Guest 状态失败 (不致命): {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Log.Message($"[RimTalk-ExpandActions] {pawnToRecruit.Name.ToStringShort} 没有 Guest 状态。");
                 }
 
-                // 5. 发送招募成功信件
-                SendRecruitmentLetter(pawnToRecruit, recruiter, oldFactionName);
-
-                Log.Message($"[RimTalk-ExpandMemory] 成功通过对话招募: {pawnToRecruit.Name.ToStringShort}");
+                // --- 5. 最终验证与成功通知（确保派系已更改） ---
+                if (pawnToRecruit.Faction == Faction.OfPlayer)
+                {
+                    Log.Message($"[RimTalk-ExpandActions] ? 成功通过对话招募: {pawnToRecruit.Name.ToStringShort}");
+                    SendRecruitmentLetter(pawnToRecruit, recruiter, oldFactionName);
+                }
+                else
+                {
+                    // 如果 SetFaction 失败，会在这里记录错误
+                    Log.Error($"[RimTalk-ExpandActions] ? 核心失败: {pawnToRecruit.Name.ToStringShort} 的派系没有更改 (仍属于 {pawnToRecruit.Faction?.Name ?? "无派系"})");
+                }
             }
             catch (Exception ex)
             {
-                Log.Error($"[RimTalk-ExpandMemory] ExecuteRecruit 执行失败: {ex.Message}\n{ex.StackTrace}");
+                // 捕获所有其他异常，并记录日志
+                Log.Error($"[RimTalk-ExpandActions] ExecuteRecruit 最终执行失败: {ex.Message}\n{ex.StackTrace}");
             }
         }
 
