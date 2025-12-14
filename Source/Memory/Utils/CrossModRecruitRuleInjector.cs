@@ -13,7 +13,7 @@ namespace RimTalkExpandActions.Memory.Utils
     public static class CrossModRecruitRuleInjector
     {
         private const string RECRUIT_RULE_ID = "expand-action-recruit";
-        private const string RECRUIT_RULE_TAG = "招募|加入|投靠|派系|收留|收编|归顺";
+        private const string RECRUIT_RULE_TAG = "招募,加入,投靠,派系,收留,收编,归顺";
         
         private const string TARGET_MOD_NAMESPACE = "RimTalk.Memory";
         private const string MEMORY_MANAGER_TYPE = "MemoryManager";
