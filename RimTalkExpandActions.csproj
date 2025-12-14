@@ -17,6 +17,7 @@
   <ItemGroup>
     <Compile Remove="obj\**" />
     <Compile Remove="Bin\**" />
+    <Compile Remove="Docs\**" />
     <Compile Remove="Source\RimTalkExpandActionsSettingsUI.cs" />
   </ItemGroup>
 

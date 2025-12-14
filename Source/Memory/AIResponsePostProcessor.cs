@@ -145,6 +145,10 @@ namespace RimTalkExpandActions.Memory
                         HandleGiftAction(jsonBlock, targetPawn);
                         break;
 
+                    case "social_dining":
+                        HandleSocialDiningAction(jsonBlock, targetPawn);
+                        break;
+
                     default:
                         Log.Warning(string.Format("[RimTalk-ExpandActions] 未知动作类型: {0}", action));
                         break;
@@ -176,7 +180,9 @@ namespace RimTalkExpandActions.Memory
                 case "force_rest":
                     return "休息";
                 case "give_item":
-                    return "赠送";
+                    return "送礼";
+                case "social_dining":
+                    return "共餐";
                 default:
                     return action;
             }
@@ -260,9 +266,41 @@ namespace RimTalkExpandActions.Memory
 
             if (ValidateTarget(targetName, targetPawn) && !string.IsNullOrEmpty(itemKeyword))
             {
-                Log.Message(string.Format("[RimTalk-ExpandActions] 检测到赠送指令: {0}, 物品: {1}", targetPawn.Name.ToStringShort, itemKeyword));
+                Log.Message(string.Format("[RimTalk-ExpandActions] 检测到送礼指令: {0}, 物品: {1}", targetPawn.Name.ToStringShort, itemKeyword));
                 RimTalkActions.ExecuteGift(targetPawn, itemKeyword);
             }
+        }
+
+        private static void HandleSocialDiningAction(string jsonBlock, Pawn targetPawn)
+        {
+            string initiatorName = ExtractJsonField(jsonBlock, "initiator");
+            string recipientName = ExtractJsonField(jsonBlock, "recipient");
+
+            if (string.IsNullOrEmpty(initiatorName) || string.IsNullOrEmpty(recipientName))
+            {
+                Log.Warning("[RimTalk-ExpandActions] 社交用餐指令缺少 initiator 或 recipient 参数");
+                return;
+            }
+
+            Pawn initiator = FindPawnByName(initiatorName);
+            Pawn recipient = FindPawnByName(recipientName);
+
+            if (initiator == null)
+            {
+                Log.Warning(string.Format("[RimTalk-ExpandActions] 未找到发起者: '{0}'", initiatorName));
+                return;
+            }
+
+            if (recipient == null)
+            {
+                Log.Warning(string.Format("[RimTalk-ExpandActions] 未找到接受者: '{0}'", recipientName));
+                return;
+            }
+
+            Log.Message(string.Format("[RimTalk-ExpandActions] 检测到社交用餐指令: {0} 邀请 {1}", 
+                initiator.Name.ToStringShort, recipient.Name.ToStringShort));
+            
+            RimTalkActions.ExecuteSocialDining(initiator, recipient);
         }
 
         #endregion

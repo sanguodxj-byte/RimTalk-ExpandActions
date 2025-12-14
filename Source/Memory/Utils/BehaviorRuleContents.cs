@@ -80,6 +80,28 @@ item_keyword 应为物品名称的关键部分，例如：
 注意：NPC必须确实拥有该物品才能赠送。";
 
         /// <summary>
+        /// 社交用餐行为规则
+        /// </summary>
+        public const string SOCIAL_DINING_RULE = @"当对话双方决定一起吃饭、分享食物、举办小型聚餐或庆祝时，且双方关系良好，请在回复末尾附加JSON：{""action"": ""social_dining"", ""initiator"": ""发起者名字"", ""recipient"": ""接受者名字""}
+
+适用场景：
+- 邀请共进晚餐：""要不要一起吃个饭？""
+- 分享食物：""我这有好吃的，一起分享吧。""
+- 庆祝活动：""今天值得庆祝，一起喝一杯！""
+- 社交场合：""来，坐下一起吃点东西。""
+
+示例：
+- 玩家：""要不要一起吃个饭？""
+  NPC：""好啊，正好饿了。{""action"": ""social_dining"", ""initiator"": ""玩家"", ""recipient"": ""NPC名字""}"":
+- NPC主动：""我准备了点吃的，一起吧？{""action"": ""social_dining"", ""initiator"": ""NPC名字"", ""recipient"": ""玩家""}"".
+
+注意：
+1. 仅在双方明确同意时触发
+2. initiator 是发起邀请的人
+3. recipient 是接受邀请的人
+4. 确保双方关系良好且都有空闲时间";
+
+        /// <summary>
         /// 获取所有规则定义
         /// </summary>
         public static Dictionary<string, RuleDefinition> GetAllRules()
@@ -148,7 +170,18 @@ item_keyword 应为物品名称的关键部分，例如：
                         Id = "sys-rule-gift",
                         Tag = "系统指令",
                         Content = GIFT_RULE,
-                        Keywords = new[] { "给你", "赠送", "礼物", "拿去", "送你", "给", "送" },
+                        Keywords = new[] { "送给", "给你", "拿去", "送去", "赠送", "给", "拿" },
+                        Importance = 1.0f
+                    }
+                },
+                {
+                    "sys-rule-social-dining",
+                    new RuleDefinition
+                    {
+                        Id = "sys-rule-social-dining",
+                        Tag = "系统指令",
+                        Content = SOCIAL_DINING_RULE,
+                        Keywords = new[] { "吃饭", "聚餐", "饿了", "分享食物", "吃点东西", "庆祝", "喝一杯", "共进晚餐", "一起吃", "用餐" },
                         Importance = 1.0f
                     }
                 }

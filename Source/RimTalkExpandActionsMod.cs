@@ -116,6 +116,11 @@ namespace RimTalkExpandActions
         /// </summary>
         public bool enableGift = true;
 
+        /// <summary>
+        /// 启用社交用餐功能
+        /// </summary>
+        public bool enableSocialDining = true;
+
         // ===== 成功难度系数 (0.0 - 1.0) =====
 
         /// <summary>
@@ -148,8 +153,12 @@ namespace RimTalkExpandActions
         /// </summary>
         public float giftSuccessChance = 1.0f;
 
-        // ===== 高级设置 =====
+        /// <summary>
+        /// 社交用餐成功率系数
+        /// </summary>
+        public float socialDiningSuccessChance = 1.0f;
 
+        // ===== 逻辑配置 =====
         /// <summary>
         /// 是否显示详细日志
         /// </summary>
@@ -177,6 +186,7 @@ namespace RimTalkExpandActions
             Scribe_Values.Look(ref enableInspiration, "enableInspiration", true);
             Scribe_Values.Look(ref enableRest, "enableRest", true);
             Scribe_Values.Look(ref enableGift, "enableGift", true);
+            Scribe_Values.Look(ref enableSocialDining, "enableSocialDining", true);
 
             // 成功难度系数
             Scribe_Values.Look(ref recruitSuccessChance, "recruitSuccessChance", 1.0f);
@@ -185,6 +195,7 @@ namespace RimTalkExpandActions
             Scribe_Values.Look(ref inspirationSuccessChance, "inspirationSuccessChance", 1.0f);
             Scribe_Values.Look(ref restSuccessChance, "restSuccessChance", 1.0f);
             Scribe_Values.Look(ref giftSuccessChance, "giftSuccessChance", 1.0f);
+            Scribe_Values.Look(ref socialDiningSuccessChance, "socialDiningSuccessChance", 1.0f);
 
             // 高级设置
             Scribe_Values.Look(ref enableDetailedLogging, "enableDetailedLogging", false);
@@ -206,6 +217,7 @@ namespace RimTalkExpandActions
             enableInspiration = true;
             enableRest = true;
             enableGift = true;
+            enableSocialDining = true;
 
             recruitSuccessChance = 1.0f;
             dropWeaponSuccessChance = 1.0f;
@@ -213,6 +225,7 @@ namespace RimTalkExpandActions
             inspirationSuccessChance = 1.0f;
             restSuccessChance = 1.0f;
             giftSuccessChance = 1.0f;
+            socialDiningSuccessChance = 1.0f;
 
             enableDetailedLogging = false;
             showActionMessages = true;
@@ -240,6 +253,9 @@ namespace RimTalkExpandActions
                 case "give_item":
                 case "gift":
                     return enableGift;
+                case "social_dining":
+                case "dining":
+                    return enableSocialDining;
                 default:
                     return true;
             }
@@ -267,6 +283,9 @@ namespace RimTalkExpandActions
                 case "give_item":
                 case "gift":
                     return giftSuccessChance;
+                case "social_dining":
+                case "dining":
+                    return socialDiningSuccessChance;
                 default:
                     return 1.0f;
             }
