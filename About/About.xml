@@ -9,24 +9,24 @@
     </supportedVersions>
     <description>RimTalk-ExpandActions - 对话招募扩展
 
-通过 AI 对话招募 NPC！本 Mod 为 RimTalk-ExpandMemory 添加招募功能。
+通过 AI 对话招募 NPC，此 Mod 为 RimTalk-ExpandMemory 添加招募功能。
 
 【主要功能】
 ? 向 RimTalk 常识库注入招募规则
-? AI 自动检测招募意图并生成指令
-? 通过对话直接招募 NPC 加入派系
-? 可自定义规则内容和重要性
+? AI 自动触发招募及其他行为指令
+? 通过对话直接招募 NPC 到殖民地
+? 可自定义规则内容和重要度
 
 【使用方法】
 1. 确保 RimTalk-ExpandMemory Mod 已安装
-2. 在 Mod 设置中点击"立即注入招募规则"
-3. 与 NPC 对话时，AI 会自动处理招募场景
+2. 在 Mod 设置中启用"自动注入招募规则"
+3. 与 NPC 对话时，AI 会自动触发招募流程
 
-【依赖】
+【前置依赖】
 ? RimTalk-ExpandMemory (必需)
 
 【兼容性】
-本 Mod 通过反射实现跨 Mod 通信，理论上兼容任何版本的 RimTalk-ExpandMemory。
+此 Mod 通过反射实现跨 Mod 通信，理论上兼容任何版本的 RimTalk-ExpandMemory。
     </description>
     <modDependencies>
         <li>

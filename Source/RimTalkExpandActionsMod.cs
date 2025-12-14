@@ -28,16 +28,27 @@ namespace RimTalkExpandActions
         {
             try
             {
-                // 临时禁用UI，直接显示简单文本
-                Widgets.Label(new Rect(0f, 0f, inRect.width, 60f), 
-                    "RimTalk-ExpandActions\n设置功能开发中，请通过代码配置。");
-                // RimTalkExpandActionsSettingsUI.DoSettingsWindowContents(inRect, Settings);
+                Listing_Standard listingStandard = new Listing_Standard();
+                listingStandard.Begin(inRect);
+                
+                listingStandard.Label("RimTalk-ExpandActions");
+                listingStandard.Gap();
+                listingStandard.Label("? 6种行为系统已启用（招募/投降/恋爱/灵感/休息/赠送）");
+                listingStandard.Label("? 所有行为默认100%成功率");
+                listingStandard.Label("? 自动注入规则功能已启用");
+                listingStandard.Gap();
+                listingStandard.Label("详细设置请编辑配置文件或通过代码调用。");
+                
+                listingStandard.End();
             }
             catch (Exception ex)
             {
                 Log.Error(string.Format("[RimTalk-ExpandActions] 设置界面错误: {0}", ex.Message));
             }
         }
+        
+        private static Vector2 scrollPosition;
+        private static Rect viewRect = new Rect(0f, 0f, 600f, 400f);
 
         public override void WriteSettings()
         {
