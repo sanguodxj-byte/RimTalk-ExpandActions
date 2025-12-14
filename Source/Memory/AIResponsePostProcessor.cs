@@ -146,7 +146,7 @@ namespace RimTalkExpandActions.Memory
                         break;
 
                     case "social_dining":
-                        HandleSocialDiningAction(jsonBlock, targetPawn);
+                        HandleSocialDiningAction(jsonBlock, targetPawn, recruiter);
                         break;
 
                     default:
@@ -271,36 +271,71 @@ namespace RimTalkExpandActions.Memory
             }
         }
 
-        private static void HandleSocialDiningAction(string jsonBlock, Pawn targetPawn)
+        private static void HandleSocialDiningAction(string jsonBlock, Pawn targetPawn, Pawn recruiter)
         {
+            // 尝试从 JSON 获取目标
+            string targetName = ExtractJsonField(jsonBlock, "target");
+            Pawn finalTarget = null;
+            
+            if (!string.IsNullOrEmpty(targetName))
+            {
+                finalTarget = FindPawnByName(targetName);
+                if (finalTarget == null)
+                {
+                    Log.Warning(string.Format("[RimTalk-ExpandActions] 未找到目标: '{0}'，使用默认 targetPawn", targetName));
+                }
+            }
+            
+            // 如果 JSON 没有指定目标或解析失败，使用参数 targetPawn
+            if (finalTarget == null)
+            {
+                finalTarget = targetPawn;
+            }
+
+            // 尝试从 JSON 获取发起者
             string initiatorName = ExtractJsonField(jsonBlock, "initiator");
-            string recipientName = ExtractJsonField(jsonBlock, "recipient");
-
-            if (string.IsNullOrEmpty(initiatorName) || string.IsNullOrEmpty(recipientName))
+            Pawn finalInitiator = null;
+            
+            if (!string.IsNullOrEmpty(initiatorName))
             {
-                Log.Warning("[RimTalk-ExpandActions] 社交用餐指令缺少 initiator 或 recipient 参数");
+                finalInitiator = FindPawnByName(initiatorName);
+                if (finalInitiator == null)
+                {
+                    Log.Warning(string.Format("[RimTalk-ExpandActions] 未找到发起者: '{0}'，使用默认 recruiter", initiatorName));
+                }
+            }
+            
+            // 如果 JSON 没有指定发起者或解析失败，使用参数 recruiter（当前说话者）
+            if (finalInitiator == null)
+            {
+                finalInitiator = recruiter;
+            }
+
+            // 空值检查
+            if (finalInitiator == null)
+            {
+                Log.Warning("[RimTalk-ExpandActions] 社交用餐指令：发起者为空，无法执行");
                 return;
             }
 
-            Pawn initiator = FindPawnByName(initiatorName);
-            Pawn recipient = FindPawnByName(recipientName);
-
-            if (initiator == null)
+            if (finalTarget == null)
             {
-                Log.Warning(string.Format("[RimTalk-ExpandActions] 未找到发起者: '{0}'", initiatorName));
+                Log.Warning("[RimTalk-ExpandActions] 社交用餐指令：目标为空，无法执行");
                 return;
             }
 
-            if (recipient == null)
+            // 检查是否为同一个人
+            if (finalInitiator == finalTarget)
             {
-                Log.Warning(string.Format("[RimTalk-ExpandActions] 未找到接受者: '{0}'", recipientName));
+                Log.Warning(string.Format("[RimTalk-ExpandActions] 社交用餐指令：发起者和目标是同一个人 ({0})，无法执行", 
+                    finalInitiator.Name.ToStringShort));
                 return;
             }
 
             Log.Message(string.Format("[RimTalk-ExpandActions] 检测到社交用餐指令: {0} 邀请 {1}", 
-                initiator.Name.ToStringShort, recipient.Name.ToStringShort));
+                finalInitiator.Name.ToStringShort, finalTarget.Name.ToStringShort));
             
-            RimTalkActions.ExecuteSocialDining(initiator, recipient);
+            RimTalkActions.ExecuteSocialDining(finalInitiator, finalTarget);
         }
 
         #endregion
