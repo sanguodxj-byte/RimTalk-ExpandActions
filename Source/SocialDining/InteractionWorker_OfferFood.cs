@@ -72,32 +72,20 @@ namespace RimTalkExpandActions.SocialDining
                 return false;
             }
 
-            if (FoodSharingUtility.TryFindSharedFood(initiator, recipient, out Thing _))
-            {
-                return true;
-            }
-
-            return false;
+            Thing food = FoodSharingUtility.FindFoodForSharing(initiator, recipient);
+            return food != null;
         }
 
         private void TryStartSocialDining(Pawn initiator, Pawn recipient)
         {
-            if (!FoodSharingUtility.TryFindSharedFood(initiator, recipient, out Thing food))
+            Thing food = FoodSharingUtility.FindFoodForSharing(initiator, recipient);
+            if (food == null)
             {
                 return;
             }
 
-            Job job = JobMaker.MakeJob(SocialDiningDefOf.SocialDine, food, null, recipient);
-
-            if (FoodSharingUtility.TryFindChair(initiator, out Building chair))
-            {
-                job.targetB = chair;
-            }
-
-            if (initiator.jobs != null)
-            {
-                initiator.jobs.TryTakeOrderedJob(job, new JobTag?(JobTag.Misc));
-            }
+            // Use the ported core method
+            FoodSharingUtility.TryTriggerShareFood(initiator, recipient, food);
         }
     }
 }

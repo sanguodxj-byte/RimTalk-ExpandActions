@@ -555,12 +555,26 @@ namespace RimTalkExpandActions.Memory.Actions
                     return;
                 }
 
-                // 2. 查找可用食物
-                if (!FoodSharingUtility.TryFindSharedFood(initiator, target, out Thing food))
+                // 2. 检查是否可以被打扰
+                if (!FoodSharingUtility.IsSafeToDisturb(initiator))
+                {
+                    Log.Message($"[RimTalk-ExpandActions] {initiator.Name.ToStringShort} 现在不适合进餐（正忙碌或战斗中）");
+                    return;
+                }
+
+                if (!FoodSharingUtility.IsSafeToDisturb(target))
+                {
+                    Log.Message($"[RimTalk-ExpandActions] {target.Name.ToStringShort} 现在不适合进餐（正忙碌或战斗中）");
+                    return;
+                }
+
+                // 3. 查找可用食物（使用移植的方法）
+                Thing food = FoodSharingUtility.FindFoodForSharing(initiator, target);
+                if (food == null)
                 {
                     Log.Message($"[RimTalk-ExpandActions] {initiator.Name.ToStringShort} 找不到可以分享的食物");
                     
-                    if (Prefs.DevMode)
+                    if (Prefs.DevMode || RimTalkExpandActionsMod.Settings?.showActionMessages == true)
                     {
                         Messages.Message(
                             $"{initiator.Name.ToStringShort} 想邀请 {target.Name.ToStringShort} 一起吃饭，但找不到合适的食物。",
@@ -571,45 +585,26 @@ namespace RimTalkExpandActions.Memory.Actions
                     return;
                 }
 
-                // 3. 计算需要的食物数量（通常是 2 份，够两个人吃）
-                int requiredCount = 2;
-                if (food.stackCount < requiredCount)
+                // 4. 使用移植的核心方法触发共餐
+                bool success = FoodSharingUtility.TryTriggerShareFood(initiator, target, food);
+                
+                if (success)
                 {
-                    requiredCount = food.stackCount;
-                }
-
-                // 4. 创建社交用餐任务
-                Job job = JobMaker.MakeJob(SocialDiningDefOf.SocialDine, food, null, target);
-                job.count = requiredCount;
-
-                // 5. 尝试查找座位（可选）
-                if (FoodSharingUtility.TryFindChair(initiator, out Building chair))
-                {
-                    job.targetB = chair;
-                    Log.Message($"[RimTalk-ExpandActions] 为 {initiator.Name.ToStringShort} 找到座位: {chair.Label}");
-                }
-
-                // 6. 标记食物为共享状态
-                FoodSharingUtility.MarkFoodAsShared(food, initiator, target);
-
-                // 7. 分配任务给发起者
-                if (initiator.jobs != null)
-                {
-                    if (initiator.jobs.TryTakeOrderedJob(job, new JobTag?(JobTag.Misc)))
+                    Log.Message($"[RimTalk-ExpandActions] {initiator.Name.ToStringShort} 成功邀请 {target.Name.ToStringShort} 共餐");
+                    
+                    // 发送消息给玩家
+                    if (RimTalkExpandActionsMod.Settings?.showActionMessages == true)
                     {
-                        Log.Message($"[RimTalk-ExpandActions] {initiator.Name.ToStringShort} 邀请 {target.Name.ToStringShort} 一起吃 {food.LabelShort}");
-                        
-                        // 8. 发送消息给玩家
                         Messages.Message(
                             $"{initiator.Name.ToStringShort} 邀请 {target.Name.ToStringShort} 一起共进晚餐。",
                             new LookTargets(new Pawn[] { initiator, target }),
                             MessageTypeDefOf.PositiveEvent
                         );
                     }
-                    else
-                    {
-                        Log.Warning($"[RimTalk-ExpandActions] {initiator.Name.ToStringShort} 无法接受社交用餐任务");
-                    }
+                }
+                else
+                {
+                    Log.Warning($"[RimTalk-ExpandActions] {initiator.Name.ToStringShort} 邀请 {target.Name.ToStringShort} 共餐失败");
                 }
             }
             catch (Exception ex)

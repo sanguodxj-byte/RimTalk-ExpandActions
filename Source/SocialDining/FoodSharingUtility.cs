@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
 using RimWorld;
 using Verse;
 using Verse.AI;
@@ -8,81 +10,223 @@ namespace RimTalkExpandActions.SocialDining
     public static class FoodSharingUtility
     {
         private const float FoodSearchRadius = 45f;
-        private const float ChairSearchRadius = 30f;
+        private const float TableSearchRadius = 40f;
 
-        public static bool TryFindSharedFood(Pawn sharer, Pawn recipient, out Thing food)
+        #region 核心方法 - 触发共餐
+
+        /// <summary>
+        /// 触发共餐行为 - 从源 Mod 移植的核心方法
+        /// 包含完整的多人预留检查和任务创建逻辑
+        /// </summary>
+        public static bool TryTriggerShareFood(Pawn initiator, Pawn recipient, Thing food)
         {
-            food = null;
-
-            if (sharer == null || recipient == null || sharer.Map == null)
+            if (initiator == null || recipient == null || food == null)
             {
+                Log.Warning("[SocialDining] TryTriggerShareFood: 参数无效");
                 return false;
             }
 
-            if (TryFindFoodInInventory(sharer, out food))
+            // Step 1: 掉落食物（如果发起者持有）
+            Thing foodToDrop = null;
+            if (initiator.carryTracker?.CarriedThing == food)
             {
-                return true;
+                if (initiator.carryTracker.TryDropCarriedThing(initiator.Position, ThingPlaceMode.Near, out foodToDrop))
+                {
+                    food = foodToDrop;
+                }
+                else
+                {
+                    Log.Warning("[SocialDining] 无法放下食物");
+                    return false;
+                }
             }
 
-            if (TryFindFoodOnMap(sharer, out food))
+            // Step 2: 检查食物是否有效
+            if (food == null || food.Destroyed || !food.Spawned)
             {
-                return true;
+                Log.Warning("[SocialDining] 食物无效或已被销毁");
+                return false;
             }
 
-            return false;
+            // Step 3: 多人预留检查（核心逻辑）
+            if (!initiator.CanReserve(food, 1, -1, null, false))
+            {
+                Pawn reserver = initiator.Map?.reservationManager?.FirstRespectedReserver(food, initiator);
+                if (reserver != recipient)
+                {
+                    Log.Warning($"[SocialDining] {initiator.LabelShort} 无法预留食物 (已被 {reserver?.LabelShort ?? "未知"} 预留)");
+                    return false;
+                }
+            }
+
+            if (!recipient.CanReserve(food, 1, -1, null, false))
+            {
+                Pawn reserver = recipient.Map?.reservationManager?.FirstRespectedReserver(food, recipient);
+                if (reserver != initiator)
+                {
+                    Log.Warning($"[SocialDining] {recipient.LabelShort} 无法预留食物 (已被 {reserver?.LabelShort ?? "未知"} 预留)");
+                    return false;
+                }
+            }
+
+            // Step 4: 查找餐桌或野餐地点
+            Building table = TryFindTableForTwo(initiator.Map, initiator, recipient, TableSearchRadius);
+            
+            // Step 5: 创建任务
+            Job initiatorJob = JobMaker.MakeJob(SocialDiningDefOf.SocialDine, food, table, recipient);
+            initiatorJob.count = 1;
+
+            Job recipientJob = JobMaker.MakeJob(SocialDiningDefOf.SocialDine, food, table, initiator);
+            recipientJob.count = 1;
+
+            // Step 6: 启动任务
+            if (initiator.jobs.TryTakeOrderedJob(initiatorJob, JobTag.Misc, false))
+            {
+                if (RimTalkExpandActionsMod.Settings?.enableDetailedLogging == true)
+                {
+                    Log.Message($"[SocialDining] {initiator.LabelShort} 接受社交共餐任务");
+                }
+            }
+            else
+            {
+                Log.Warning($"[SocialDining] {initiator.LabelShort} 无法接受社交共餐任务");
+                return false;
+            }
+
+            if (recipient.jobs.TryTakeOrderedJob(recipientJob, JobTag.Misc, false))
+            {
+                if (RimTalkExpandActionsMod.Settings?.enableDetailedLogging == true)
+                {
+                    Log.Message($"[SocialDining] {recipient.LabelShort} 接受社交共餐任务");
+                }
+            }
+            else
+            {
+                Log.Warning($"[SocialDining] {recipient.LabelShort} 无法接受社交共餐任务，取消发起者任务");
+                initiator.jobs.EndCurrentJob(JobCondition.InterruptForced);
+                return false;
+            }
+
+            return true;
         }
 
-        public static bool TryFindChair(Pawn pawn, out Building chair, float maxDistance = ChairSearchRadius)
+        /// <summary>
+        /// 查找适合两人的餐桌
+        /// 从源 Mod 移植
+        /// </summary>
+        public static Building TryFindTableForTwo(Map map, Pawn pawn1, Pawn pawn2, float maxDistance)
         {
-            chair = null;
-            if (pawn?.Map == null)
-            {
-                return false;
-            }
+            if (map == null || pawn1 == null || pawn2 == null)
+                return null;
 
-            Building bestChair = null;
+            // Calculate midpoint between two pawns
+            IntVec3 midPoint = new IntVec3(
+                (pawn1.Position.x + pawn2.Position.x) / 2,
+                0,
+                (pawn1.Position.z + pawn2.Position.z) / 2
+            );
+            
+            Building bestTable = null;
             float bestScore = float.MinValue;
-            List<Thing> allThings = pawn.Map.listerThings.AllThings;
 
-            for (int i = 0; i < allThings.Count; i++)
+            // Find all dining tables
+            List<Building> allTables = map.listerBuildings.allBuildingsColonist
+                .Where(b => b.def.building?.isMealSource == true || b.def.surfaceType == SurfaceType.Eat)
+                .ToList();
+
+            foreach (Building table in allTables)
             {
-                Building building = allThings[i] as Building;
-                if (building == null)
-                {
+                if (table.Position.DistanceTo(midPoint) > maxDistance)
                     continue;
+
+                // Check for adjacent seats
+                int adjacentSeats = 0;
+                foreach (IntVec3 cell in GenAdj.CellsAdjacentCardinal(table))
+                {
+                    Building seat = cell.GetEdifice(map);
+                    if (seat != null && seat.def.building?.isSittable == true)
+                    {
+                        adjacentSeats++;
+                    }
                 }
 
-                if (!IsValidChairFor(pawn, building, maxDistance))
-                {
+                if (adjacentSeats < 2)
                     continue;
-                }
 
-                float score = -pawn.Position.DistanceToSquared(building.Position);
-                if (building.def.building != null && building.def.building.isSittable)
-                {
-                    score += 5f;
-                }
-
-                if (IsNearDiningSurface(building))
-                {
-                    score += 3f;
-                }
+                // Score: closer is better
+                float score = 100f - table.Position.DistanceTo(midPoint);
+                score += adjacentSeats * 5f;
 
                 if (score > bestScore)
                 {
                     bestScore = score;
-                    bestChair = building;
+                    bestTable = table;
                 }
             }
 
-            if (bestChair != null)
+            return bestTable;
+        }
+
+        /// <summary>
+        /// 检查小人是否可以被打扰去共餐
+        /// 从源 Mod 移植
+        /// </summary>
+        public static bool IsSafeToDisturb(Pawn pawn)
+        {
+            if (pawn == null || !pawn.Spawned || pawn.Dead)
+                return false;
+
+            // 检查是否征召
+            if (pawn.Drafted)
+                return false;
+
+            // 检查是否精神崩溃
+            if (pawn.InMentalState)
+                return false;
+
+            // 检查是否在战斗
+            if (pawn.mindState?.enemyTarget != null)
+                return false;
+
+            // 检查是否在执行高优先级任务
+            if (pawn.jobs?.curJob != null)
             {
-                chair = bestChair;
-                return true;
+                if (pawn.jobs.curJob.def == JobDefOf.AttackMelee || 
+                    pawn.jobs.curJob.def == JobDefOf.AttackStatic ||
+                    pawn.jobs.curJob.def == JobDefOf.FleeAndCower)
+                {
+                    return false;
+                }
             }
 
-            return false;
+            return true;
         }
+
+        /// <summary>
+        /// 查找适合共餐的食物
+        /// </summary>
+        public static Thing FindFoodForSharing(Pawn pawn1, Pawn pawn2)
+        {
+            if (pawn1 == null || pawn2 == null)
+                return null;
+
+            // 优先检查背包
+            if (TryFindFoodInInventory(pawn1, out Thing food1))
+                return food1;
+
+            if (TryFindFoodInInventory(pawn2, out Thing food2))
+                return food2;
+
+            // 在地图上查找
+            if (TryFindFoodOnMap(pawn1, out Thing food3))
+                return food3;
+
+            return null;
+        }
+
+        #endregion
+
+        #region 辅助方法
 
         public static SharedFoodTracker TryGetFoodTracker(Thing food)
         {
@@ -91,18 +235,13 @@ namespace RimTalkExpandActions.SocialDining
 
         public static void MarkFoodAsShared(Thing food, Pawn sharer, Pawn recipient)
         {
-            TryGetFoodTracker(food)?.MarkShared(sharer, recipient);
-        }
-
-        public static bool IsFoodReservedFor(Thing food, Pawn pawn)
-        {
-            SharedFoodTracker tracker = TryGetFoodTracker(food);
-            if (tracker == null)
+            ThingWithComps foodWithComps = food as ThingWithComps;
+            if (foodWithComps != null)
             {
-                return false;
+                SharedFoodTracker tracker = foodWithComps.TryGetComp<SharedFoodTracker>();
+                tracker?.RegisterEater(sharer);
+                tracker?.RegisterEater(recipient);
             }
-
-            return tracker.IsSharedWith(pawn) || tracker.IsSharedBy(pawn);
         }
 
         private static bool TryFindFoodInInventory(Pawn pawn, out Thing food)
@@ -152,8 +291,6 @@ namespace RimTalkExpandActions.SocialDining
             }
 
             ThingRequest request = ThingRequest.ForGroup(ThingRequestGroup.FoodSourceNotPlantOrTree);
-            
-            // RimWorld 1.6 兼容：TraverseParms.For 只需要 pawn 参数
             TraverseParms traverseParms = TraverseParms.For(pawn, Danger.Deadly, TraverseMode.ByPawn, false);
             
             Thing found = GenClosest.ClosestThingReachable(
@@ -191,13 +328,9 @@ namespace RimTalkExpandActions.SocialDining
                 return false;
             }
 
-            if (!pawn.CanReserve(food))
-            {
-                return false;
-            }
-
+            // 检查是否已被其他人共享（不是当前两人）
             SharedFoodTracker tracker = TryGetFoodTracker(food);
-            if (tracker != null && tracker.IsActive && tracker.Sharer != pawn)
+            if (tracker != null && tracker.ActiveEatersCount >= 2)
             {
                 return false;
             }
@@ -212,54 +345,6 @@ namespace RimTalkExpandActions.SocialDining
             return nutrition + preferability;
         }
 
-        private static bool IsValidChairFor(Pawn pawn, Building building, float maxDistance)
-        {
-            if (building.Map != pawn.Map)
-            {
-                return false;
-            }
-
-            if (building.def.building == null || !building.def.building.isSittable)
-            {
-                return false;
-            }
-
-            if (maxDistance > 0f && building.Position.DistanceTo(pawn.Position) > maxDistance)
-            {
-                return false;
-            }
-
-            if (!pawn.CanReserveAndReach(building, PathEndMode.OnCell, Danger.Some))
-            {
-                return false;
-            }
-
-            if (building.IsForbidden(pawn))
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        private static bool IsNearDiningSurface(Thing seat)
-        {
-            Map map = seat.Map;
-            if (map == null)
-            {
-                return false;
-            }
-
-            foreach (IntVec3 cell in GenAdj.CellsAdjacentCardinal(seat))
-            {
-                Building edifice = cell.GetEdifice(map);
-                if (edifice?.def?.surfaceType == SurfaceType.Eat)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
+        #endregion
     }
 }
