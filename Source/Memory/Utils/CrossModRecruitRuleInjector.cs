@@ -12,8 +12,8 @@ namespace RimTalkExpandActions.Memory.Utils
     /// </summary>
     public static class CrossModRecruitRuleInjector
     {
-        private const string RECRUIT_RULE_ID = "sys-rule-recruit";
-        private const string SYSTEM_RULE_TAG = "系统指令";
+        private const string RECRUIT_RULE_ID = "expand-action-recruit";
+        private const string SYSTEM_RULE_TAG = "对话行为";
         
         private const string TARGET_MOD_NAMESPACE = "RimTalk.Memory";
         private const string MEMORY_MANAGER_TYPE = "MemoryManager";
@@ -469,7 +469,7 @@ namespace RimTalkExpandActions.Memory.Utils
 
                 // 设置基本属性
                 SetProperty(entry, "id", ruleId);
-                SetProperty(entry, "tag", tag ?? "系统指令");
+                SetProperty(entry, "tag", tag ?? "对话行为");
                 SetProperty(entry, "importance", importance);
                 SetProperty(entry, "isEnabled", true);
                 SetProperty(entry, "targetPawnId", -1);
