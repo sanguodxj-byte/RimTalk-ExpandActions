@@ -152,12 +152,16 @@ namespace RimTalkExpandActions.SocialDining
             }
 
             ThingRequest request = ThingRequest.ForGroup(ThingRequestGroup.FoodSourceNotPlantOrTree);
+            
+            // RimWorld 1.6 兼容：TraverseParms.For 只需要 pawn 参数
+            TraverseParms traverseParms = TraverseParms.For(pawn, Danger.Deadly, TraverseMode.ByPawn, false);
+            
             Thing found = GenClosest.ClosestThingReachable(
                 pawn.Position,
                 pawn.Map,
                 request,
                 PathEndMode.Touch,
-                TraverseParms.For(pawn),
+                traverseParms,
                 FoodSearchRadius,
                 t => IsValidFoodToShare(pawn, t));
 
