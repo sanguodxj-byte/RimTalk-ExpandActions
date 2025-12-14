@@ -44,11 +44,12 @@ namespace RimTalkExpandActions
                 Listing_Standard listingStandard = new Listing_Standard();
                 listingStandard.Begin(inRect);
                 
-                listingStandard.Label("RimTalk-ExpandActions");
+                // RimWorld 1.6: Label 只接受一个 string 参数
+                listingStandard.Label("RimTalk-ExpandActions v1.1.0");
                 listingStandard.Gap();
-                listingStandard.Label("? 6种行为系统已启用（招募/投降/恋爱/灵感/休息/赠送）");
-                listingStandard.Label("? 所有行为默认100%成功率");
-                listingStandard.Label("? 自动注入规则功能已启用");
+                listingStandard.Label("7种行为系统已启用（招募/投降/恋爱/灵感/休息/赠送/用餐）");
+                listingStandard.Label("所有行为默认100%成功率");
+                listingStandard.Label("自动注入规则功能已启用");
                 listingStandard.Gap();
                 listingStandard.Label("详细设置请编辑配置文件或通过代码调用。");
                 
@@ -56,7 +57,7 @@ namespace RimTalkExpandActions
             }
             catch (Exception ex)
             {
-                Log.Error(string.Format("[RimTalk-ExpandActions] 设置界面错误: {0}", ex.Message));
+                Log.Error(string.Format("[RimTalk-ExpandActions] 设置界面错误: {0}\n{1}", ex.Message, ex.StackTrace));
             }
         }
         
