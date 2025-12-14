@@ -77,6 +77,17 @@ v1.0.0 (初始版本)
     </description>
     <modDependencies>
         <li>
+            <packageId>brrainz.harmony</packageId>
+            <displayName>Harmony</displayName>
+            <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+            <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
+        </li>
+        <li>
+            <packageId>sanguodxj.rimtalk</packageId>
+            <displayName>RimTalk</displayName>
+            <steamWorkshopUrl>steam://url/CommunityFilePage/0</steamWorkshopUrl>
+        </li>
+        <li>
             <packageId>sanguo.rimtalk.expandmemory</packageId>
             <displayName>RimTalk-ExpandMemory</displayName>
             <steamWorkshopUrl>steam://url/CommunityFilePage/0</steamWorkshopUrl>
@@ -85,6 +96,8 @@ v1.0.0 (初始版本)
     <loadAfter>
         <li>Ludeon.RimWorld</li>
         <li>Ludeon.RimWorld.Royalty</li>
+        <li>brrainz.harmony</li>
+        <li>sanguodxj.rimtalk</li>
         <li>sanguo.rimtalk.expandmemory</li>
     </loadAfter>
 </ModMetaData>

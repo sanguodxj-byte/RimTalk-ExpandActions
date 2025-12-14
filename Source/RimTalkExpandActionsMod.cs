@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using Verse;
 using RimWorld;
+using HarmonyLib;
 
 namespace RimTalkExpandActions
 {
@@ -15,6 +16,18 @@ namespace RimTalkExpandActions
         public RimTalkExpandActionsMod(ModContentPack content) : base(content)
         {
             Settings = GetSettings<RimTalkExpandActionsSettings>();
+            
+            // 初始化 Harmony 补丁
+            try
+            {
+                var harmony = new Harmony("sanguo.rimtalk.expandactions");
+                harmony.PatchAll();
+                Log.Message("[RimTalk-ExpandActions] Harmony 补丁已应用");
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[RimTalk-ExpandActions] Harmony 补丁失败: {ex.Message}\n{ex.StackTrace}");
+            }
             
             Log.Message("[RimTalk-ExpandActions] Mod 已加载");
         }
