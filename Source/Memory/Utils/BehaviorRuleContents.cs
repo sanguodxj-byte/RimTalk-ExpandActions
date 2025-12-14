@@ -96,7 +96,7 @@ item_keyword 应为物品名称的关键部分，例如：
                     new RuleDefinition
                     {
                         Id = "expand-action-recruit",
-                        Tag = "招募",
+                        Tag = "招募|加入|投靠|派系|收留|收编|归顺",
                         Content = RECRUIT_RULE,
                         Keywords = new[] { "招募", "加入", "投靠", "派系", "跟我走", "收留", "收编", "归顺" },
                         Importance = 1.0f
@@ -107,7 +107,7 @@ item_keyword 应为物品名称的关键部分，例如：
                     new RuleDefinition
                     {
                         Id = "expand-action-drop-weapon",
-                        Tag = "投降",
+                        Tag = "投降|放下武器|认输|饶命|缴械",
                         Content = DROP_WEAPON_RULE,
                         Keywords = new[] { "投降", "放下武器", "认输", "别杀我", "饶命", "缴械" },
                         Importance = 1.0f
@@ -118,7 +118,7 @@ item_keyword 应为物品名称的关键部分，例如：
                     new RuleDefinition
                     {
                         Id = "expand-action-romance",
-                        Tag = "恋爱",
+                        Tag = "爱|喜欢|女朋友|男朋友|分手|在一起|表白|恋爱",
                         Content = ROMANCE_RULE,
                         Keywords = new[] { "爱", "喜欢", "做我女朋友", "做我男朋友", "分手", "在一起", "表白", "恋爱" },
                         Importance = 1.0f
@@ -129,7 +129,7 @@ item_keyword 应为物品名称的关键部分，例如：
                     new RuleDefinition
                     {
                         Id = "expand-action-inspiration",
-                        Tag = "灵感",
+                        Tag = "灵感|启发|顿悟|加油|鼓励|激励",
                         Content = INSPIRATION_RULE,
                         Keywords = new[] { "灵感", "启发", "顿悟", "加油", "鼓励", "激励", "状态" },
                         Importance = 1.0f
@@ -140,7 +140,7 @@ item_keyword 应为物品名称的关键部分，例如：
                     new RuleDefinition
                     {
                         Id = "expand-action-rest",
-                        Tag = "休息",
+                        Tag = "休息|睡觉|昏迷|好困|累了|疲劳",
                         Content = REST_RULE,
                         Keywords = new[] { "休息", "睡觉", "昏迷", "好困", "累了", "疲劳", "躺下" },
                         Importance = 1.0f
@@ -151,7 +151,7 @@ item_keyword 应为物品名称的关键部分，例如：
                     new RuleDefinition
                     {
                         Id = "expand-action-gift",
-                        Tag = "赠送",
+                        Tag = "送给|给你|拿去|赠送|礼物",
                         Content = GIFT_RULE,
                         Keywords = new[] { "送给", "给你", "拿去", "送去", "赠送", "给", "拿" },
                         Importance = 1.0f
@@ -162,7 +162,7 @@ item_keyword 应为物品名称的关键部分，例如：
                     new RuleDefinition
                     {
                         Id = "expand-action-social-dining",
-                        Tag = "用餐",
+                        Tag = "吃饭|聚餐|饿了|分享食物|庆祝|共进晚餐|用餐",
                         Content = SOCIAL_DINING_RULE,
                         Keywords = new[] { "吃饭", "聚餐", "饿了", "分享食物", "吃点东西", "庆祝", "喝一杯", "共进晚餐", "一起吃", "用餐" },
                         Importance = 1.0f
