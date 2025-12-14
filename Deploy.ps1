@@ -29,8 +29,7 @@ if (-not (Test-Path $TargetPath)) {
 # 定义需要复制的文件夹
 $FoldersToCopy = @(
     "About",
-    "Assemblies", 
-    "1.6",
+    "1.6",      # 只保留 1.6 文件夹
     "Defs"
 )
 
@@ -102,7 +101,6 @@ Write-Host "  - 目标路径: $TargetPath" -ForegroundColor White
 $keyFiles = @(
     "About\About.xml",
     "LoadFolders.xml",
-    "Assemblies\RimTalkExpandActions.dll",
     "1.6\Assemblies\RimTalkExpandActions.dll",
     "Defs\JobDefs\Jobs_SocialDining.xml",
     "Defs\InteractionDefs\Interaction_OfferFood.xml",

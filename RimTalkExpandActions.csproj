@@ -22,22 +22,18 @@
     <Compile Remove="Source\RimTalkExpandActionsSettingsUI.cs" />
   </ItemGroup>
 
-  <!-- 自动部署到 Assemblies 目录 -->
+  <!-- 自动部署到 1.6 Assemblies 目录 -->
   <Target Name="DeployToModFolder" AfterTargets="Build">
     <PropertyGroup>
       <ModRoot>$(ProjectDir)</ModRoot>
-      <AssembliesDir>$(ModRoot)Assemblies\</AssembliesDir>
       <Assemblies16Dir>$(ModRoot)1.6\Assemblies\</Assemblies16Dir>
     </PropertyGroup>
     
-    <Message Text="正在部署 DLL 到 Mod 目录..." Importance="high" />
+    <Message Text="正在部署 DLL 到 1.6 Mod 目录..." Importance="high" />
     
-    <!-- 复制到根目录 Assemblies (通用) -->
-    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(AssembliesDir)" SkipUnchangedFiles="false" />
-    
-    <!-- 复制到 1.6 版本目录 -->
+    <!-- 只复制到 1.6 版本目录 -->
     <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(Assemblies16Dir)" SkipUnchangedFiles="false" />
     
-    <Message Text="部署完成: $(AssemblyName).dll" Importance="high" />
+    <Message Text="部署完成: $(AssemblyName).dll -> 1.6/Assemblies/" Importance="high" />
   </Target>
 </Project>

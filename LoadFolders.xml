@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <loadFolders>
-  <!-- RimWorld 1.4 -->
+  <!-- RimWorld 1.4 - 使用 1.6 DLL (向后兼容) -->
   <v1.4>
     <li>/</li>
+    <li>1.6</li>
   </v1.4>
   
-  <!-- RimWorld 1.5 -->
+  <!-- RimWorld 1.5 - 使用 1.6 DLL (向后兼容) -->
   <v1.5>
     <li>/</li>
+    <li>1.6</li>
   </v1.5>
   
   <!-- RimWorld 1.6 -->
