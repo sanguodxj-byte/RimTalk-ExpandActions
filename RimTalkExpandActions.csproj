@@ -26,7 +26,7 @@
     <PropertyGroup>
       <ModRoot>$(ProjectDir)</ModRoot>
       <AssembliesDir>$(ModRoot)Assemblies\</AssembliesDir>
-      <Assemblies15Dir>$(ModRoot)1.5\Assemblies\</Assemblies15Dir>
+      <Assemblies16Dir>$(ModRoot)1.6\Assemblies\</Assemblies16Dir>
     </PropertyGroup>
     
     <Message Text="正在部署 DLL 到 Mod 目录..." Importance="high" />
@@ -34,8 +34,8 @@
     <!-- 复制到根目录 Assemblies (通用) -->
     <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(AssembliesDir)" SkipUnchangedFiles="false" />
     
-    <!-- 复制到 1.5 版本目录 -->
-    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(Assemblies15Dir)" SkipUnchangedFiles="false" />
+    <!-- 复制到 1.6 版本目录 -->
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(Assemblies16Dir)" SkipUnchangedFiles="false" />
     
     <Message Text="部署完成: $(AssemblyName).dll" Importance="high" />
   </Target>

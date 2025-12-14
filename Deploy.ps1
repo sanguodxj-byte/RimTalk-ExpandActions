@@ -30,7 +30,7 @@ if (-not (Test-Path $TargetPath)) {
 $FoldersToCopy = @(
     "About",
     "Assemblies", 
-    "1.5",
+    "1.6",
     "Defs"
 )
 
@@ -103,7 +103,7 @@ $keyFiles = @(
     "About\About.xml",
     "LoadFolders.xml",
     "Assemblies\RimTalkExpandActions.dll",
-    "1.5\Assemblies\RimTalkExpandActions.dll",
+    "1.6\Assemblies\RimTalkExpandActions.dll",
     "Defs\JobDefs\Jobs_SocialDining.xml",
     "Defs\InteractionDefs\Interaction_OfferFood.xml",
     "Defs\ThoughtDefs\Thoughts_SocialDining.xml"

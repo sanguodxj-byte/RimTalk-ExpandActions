@@ -3,61 +3,77 @@
     <name>RimTalk-ExpandActions</name>
     <author>Your Name</author>
     <packageId>yourname.rimtalk.expandactions</packageId>
+    <version>1.1.0</version>
     <supportedVersions>
         <li>1.4</li>
         <li>1.5</li>
+        <li>1.6</li>
     </supportedVersions>
-    <description>RimTalk-ExpandActions - AI �Ի�������Ϊ��չ
+    <description>RimTalk-ExpandActions - AI 对话触发行为扩展
+版本：1.1.0
 
-ͨ�� AI �Ի�����������Ϸ��Ϊ��Ϊ RimTalk-ExpandMemory ���ӷḻ�Ļ������ܡ�
+通过 AI 对话触发各种游戏行为，为 RimTalk-ExpandMemory 添加丰富的互动功能。
 
-����Ҫ���ܡ�
-? ��ļϵͳ - ͨ���Ի�ֱ����ļ NPC ��ֳ���
-? �罻�ò� - �������˹������ͣ�������ϵ
-? Ͷ��ϵͳ - �Ի��õ��˷�������Ͷ��
-? ������ϵ - ������������˹�ϵ
-? ��д��� - �����ɫ����/ս��/�������
-? ǿ����Ϣ - �ý�ɫȥ��Ϣ���������
-? ������Ʒ - �ӱ�����������Ʒ������
+【主要功能】
+* 招募系统 - 通过对话直接招募 NPC 到殖民地
+* 社交用餐 - 邀请他人共进晚餐，增进关系
+* 投降系统 - 对话让敌人放下武器投降
+* 恋爱关系 - 建立或结束恋人关系
+* 灵感触发 - 给予角色工作/战斗/交易灵感
+* 强制休息 - 让角色去休息或陷入昏迷
+* 赠送物品 - 从背包中赠送物品给他人
 
-���罻�ò͹��ܡ�
-? AI �Զ�ʶ���òͳ�����"һ��Է�"��"�۲�"��"����"�ȹؼ��ʣ�
-? �Զ����ҿ���ʳ�����λ
-? ˫����ͬ���Ͳ��������ӳ� (+3)
-? ֧����Ȼ�Ի������������ֶ�����
-? ������ JSON ָ��֧�֣�{"action": "social_dining", "target": "�Է�����"}
+【社交用餐功能】(v1.1.0 新增)
+- AI 自动识别用餐场景（"一起吃饭"、"聚餐"、"饿了"等关键词）
+- 自动查找可用食物和座位
+- 双方共同进餐并获得心情加成 (+3)
+- 支持自然对话触发，无需手动操作
+- 完整的 JSON 指令支持：{"action": "social_dining", "target": "对方名字"}
 
-��ʹ�÷�����
-1. ȷ�� RimTalk-ExpandMemory Mod �Ѱ�װ
-2. �� Mod ����������"�Զ�ע�����"
-3. �� NPC �Ի�ʱ��AI ����ݶԻ������Զ�������Ӧ��Ϊ
-4. ������Ϊ�������� Mod �����е�������/����
-5. ֧�ֵ���ÿ����Ϊ�ĳɹ��ʣ�0-100%��
+【使用方法】
+1. 确保 RimTalk-ExpandMemory Mod 已安装
+2. 在 Mod 设置中启用"自动注入规则"
+3. 与 NPC 对话时，AI 会根据对话内容自动触发相应行为
+4. 所有行为都可以在 Mod 设置中单独启用/禁用
+5. 支持调整每个行为的成功率（0-100%）
 
-��֧�ֵ� JSON ָ�
-? recruit - ��ļ��ֳ���
-? social_dining - �罻�ò�
-? drop_weapon - Ͷ��/��������
-? romance - ������ϵ���
-? give_inspiration - �������
-? force_rest - ǿ����Ϣ
-? give_item - ������Ʒ
+【支持的 JSON 指令】
+- recruit - 招募到殖民地
+- social_dining - 社交用餐
+- drop_weapon - 投降/丢弃武器
+- romance - 恋爱关系变更
+- give_inspiration - 触发灵感
+- force_rest - 强制休息
+- give_item - 赠送物品
 
-��ǰ��������
-? RimTalk-ExpandMemory (����)
+【前置依赖】
+* RimTalk-ExpandMemory (必需)
 
-�������ԡ�
-? ֧�� RimWorld 1.4 �� 1.5
-? ���� .NET Framework 4.7.2
-? ͨ������ʵ�ֿ� Mod ͨ��
-? �����ϼ����κΰ汾�� RimTalk-ExpandMemory
+【兼容性】
+- 支持 RimWorld 1.4、1.5 和 1.6
+- 兼容 .NET Framework 4.7.2
+- 通过反射实现跨 Mod 通信
+- 理论上兼容任何版本的 RimTalk-ExpandMemory
 
-���������ԡ�
-? ���ܻ��˻��ƣ�AI ��������� JSON ʱ�Զ���ȫ����
-? �����Ĳ�����֤�ʹ�����
-? ��ϸ����־��¼���������������ã�
-? ֧���Զ���������ݺ���Ҫ��
-? ������Ϊ֧�ֳɹ�������
+【技术特性】
+- 智能回退机制：AI 输出不完整 JSON 时自动补全参数
+- 完整的参数验证和错误处理
+- 详细的日志记录（可在设置中启用）
+- 支持自定义规则内容和重要度
+- 所有行为支持成功率配置
+
+【更新日志】
+v1.1.0 (2025-12-14)
+- 新增社交用餐功能
+- 优化 AI 响应处理器的回退逻辑
+- 简化 JSON 格式要求
+- 改进错误处理和日志记录
+- 添加 RimWorld 1.6 支持
+
+v1.0.0 (初始版本)
+- 基础招募系统
+- 投降/恋爱/灵感/休息/赠送功能
+- 跨 Mod 通信机制
     </description>
     <modDependencies>
         <li>
