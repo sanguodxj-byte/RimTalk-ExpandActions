@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using Verse;
 using RimWorld;
 
@@ -10,13 +11,15 @@ namespace RimTalkExpandActions.Memory.Utils
     /// <summary>
     /// RimTalk-ExpandMemory 常识库手动注入器
     /// 
-    /// 设计说明：
-    /// - 常识库是存档级别的数据，不在游戏启动时自动注入
-    /// - 用户需要在加载存档后，通过 Mod 设置界面手动注入
-    /// - 每个存档有独立的常识库实例
+    /// 用户说明：
+    /// - 常识库是存档绑定数据，新建游戏或加载时自动注入
+    /// - 用户需要在加载存档后通过 Mod 设置进行手动注入
+    /// - 每个存档拥有独立的常识库实例
     /// 
-    /// 更新日志 v2.0：
-    /// - 修复：ImportFromExternalMod 是**静态方法**，不是实例方法！
+    /// 更新日志 v3.0：
+    /// - 使用新的 ImportFromText(string, bool) API
+    /// - 移除所有换行符和多余标点符号
+    /// - 优化规则内容格式为单行紧凑格式
     /// </summary>
     public static class ExpandMemoryKnowledgeInjector
     {
@@ -40,13 +43,13 @@ namespace RimTalkExpandActions.Memory.Utils
             return new Dictionary<string, string>
             {
                 { "招募系统", "通过对话招募 NPC 到殖民地" },
-                { "社交用餐", "邀请他人共进晚餐，增进关系" },
+                { "社交用餐", "邀请他人共进晚餐增进关系" },
                 { "投降系统", "让敌人放下武器投降" },
                 { "恋爱关系", "建立或结束恋人关系" },
-                { "灵感触发", "给予角色工作/战斗/交易灵感" },
+                { "灵感触发", "给予角色工作战斗交易灵感" },
                 { "强制休息", "让角色去休息或陷入昏迷" },
                 { "赠送物品", "从背包中赠送物品给他人" },
-                { "社交放松", "指令多个小人进行社交娱乐活动" }
+                { "社交放松", "组织多人进行社交娱乐活动" }
             };
         }
 
@@ -59,9 +62,9 @@ namespace RimTalkExpandActions.Memory.Utils
             
             try
             {
-                Log.Message("[RimTalk-ExpandActions] ━━━━━ 手动注入常识库 ━━━━━");
+                Log.Message("[RimTalk-ExpandActions] ═══════════ 手动注入常识库 ═══════════");
                 
-                // 1. 检查是否有活动的游戏
+                // 1. 检查是否有活跃游戏
                 if (Current.Game == null || Find.World == null)
                 {
                     result.ErrorMessage = "请先加载或创建游戏存档";
@@ -69,34 +72,33 @@ namespace RimTalkExpandActions.Memory.Utils
                     return result;
                 }
                 
-                Log.Message("[RimTalk-ExpandActions] ? 当前有活动的游戏存档");
+                Log.Message("[RimTalk-ExpandActions] ? 当前有活跃游戏存档");
                 
                 // 2. 查找 CommonKnowledgeLibrary 类型
                 Type commonKnowledgeType = FindType("RimTalk.Memory.CommonKnowledgeLibrary");
                 if (commonKnowledgeType == null)
                 {
-                    result.ErrorMessage = "未找到 RimTalk-ExpandMemory（请确保已安装并启用）";
+                    result.ErrorMessage = "未找到 RimTalk-ExpandMemory，确保已安装并启用";
                     Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
                     return result;
                 }
                 
                 Log.Message($"[RimTalk-ExpandActions] ? 找到 CommonKnowledgeLibrary: {commonKnowledgeType.FullName}");
-                Log.Message($"[RimTalk-ExpandActions] 程序集: {commonKnowledgeType.Assembly.GetName().Name}");
                 
-                // 3. 查找 ImportFromExternalMod 静态方法
-                Log.Message("[RimTalk-ExpandActions] 查找 ImportFromExternalMod 静态方法...");
+                // 3. 查找 ImportFromText 静态方法
+                Log.Message("[RimTalk-ExpandActions] 查找 ImportFromText 静态方法...");
                 
                 MethodInfo importMethod = commonKnowledgeType.GetMethod(
-                    "ImportFromExternalMod",
-                    BindingFlags.Public | BindingFlags.Static,  // ← 关键：Static！
+                    "ImportFromText",
+                    BindingFlags.Public | BindingFlags.Static,
                     null,
-                    new Type[] { typeof(string), typeof(string), typeof(bool) },
+                    new Type[] { typeof(string), typeof(bool) },
                     null
                 );
                 
                 if (importMethod == null)
                 {
-                    // 列出所有静态方法帮助诊断
+                    // 列出所有静态方法用于调试
                     Log.Warning("[RimTalk-ExpandActions] 未找到标准签名，列出所有静态方法:");
                     foreach (var method in commonKnowledgeType.GetMethods(BindingFlags.Public | BindingFlags.Static))
                     {
@@ -104,39 +106,24 @@ namespace RimTalkExpandActions.Memory.Utils
                         Log.Message($"[RimTalk-ExpandActions]   - {method.Name}({pars}) -> {method.ReturnType.Name}");
                     }
                     
-                    // 尝试查找任何名为 ImportFromExternalMod 的静态方法
-                    var allImportMethods = commonKnowledgeType.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                        .Where(m => m.Name == "ImportFromExternalMod")
-                        .ToList();
-                    
-                    if (allImportMethods.Any())
-                    {
-                        importMethod = allImportMethods.First();
-                        Log.Message($"[RimTalk-ExpandActions] 使用找到的方法: {importMethod.Name}");
-                    }
-                    else
-                    {
-                        result.ErrorMessage = "未找到 ImportFromExternalMod 静态方法（版本不兼容）";
-                        Log.Error($"[RimTalk-ExpandActions] {result.ErrorMessage}");
-                        Log.Error("[RimTalk-ExpandActions] 请更新 RimTalk-ExpandMemory 到最新版本");
-                        return result;
-                    }
+                    result.ErrorMessage = "未找到 ImportFromText 静态方法，版本不兼容";
+                    Log.Error($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
                 }
                 
-                Log.Message("[RimTalk-ExpandActions] ? 找到 ImportFromExternalMod 静态方法");
+                Log.Message("[RimTalk-ExpandActions] ? 找到 ImportFromText 静态方法");
                 Log.Message($"[RimTalk-ExpandActions] 方法签名: {importMethod}");
                 
-                // 4. 准备规则内容
+                // 4. 准备注入内容
                 string knowledgeContent = GetKnowledgeContent();
-                result.TotalRules = 8; // 8 种行为
+                result.TotalRules = BehaviorRuleContents.GetAllRules().Count;
                 
-                Log.Message("[RimTalk-ExpandActions] 准备注入 8 种行为规则...");
+                Log.Message($"[RimTalk-ExpandActions] 准备注入 {result.TotalRules} 条行为规则...");
                 
-                // 5. 调用静态方法（null 作为第一个参数，因为是静态方法）
+                // 5. 调用静态方法，null 作为第一个参数因为是静态方法
                 object invokeResult = importMethod.Invoke(null, new object[]
                 {
                     knowledgeContent,
-                    "RimTalk-ExpandActions",
                     true // overwriteExisting
                 });
                 
@@ -152,9 +139,9 @@ namespace RimTalkExpandActions.Memory.Utils
                     
                     if (result.Success)
                     {
-                        Log.Message("[RimTalk-ExpandActions] ━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                        Log.Message($"[RimTalk-ExpandActions] ??? 成功导入 {count} 条规则到当前存档 ???");
-                        Log.Message("[RimTalk-ExpandActions] ━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                        Log.Message("[RimTalk-ExpandActions] ═══════════════════════════════════");
+                        Log.Message($"[RimTalk-ExpandActions] ??? 成功注入 {count} 条规则到当前存档 ???");
+                        Log.Message("[RimTalk-ExpandActions] ═══════════════════════════════════");
                         
                         foreach (var ruleName in result.InjectedRuleNames)
                         {
@@ -163,13 +150,13 @@ namespace RimTalkExpandActions.Memory.Utils
                     }
                     else
                     {
-                        result.ErrorMessage = "注入完成，但没有规则被添加（可能已存在）";
+                        result.ErrorMessage = "注入完成但没有规则添加，可能已存在";
                         Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
                     }
                 }
                 else
                 {
-                    result.ErrorMessage = $"注入方法返回了意外的类型: {invokeResult?.GetType().Name ?? "null"}";
+                    result.ErrorMessage = $"注入方法返回类型不正确: {invokeResult?.GetType().Name ?? "null"}";
                     Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
                 }
             }
@@ -203,13 +190,13 @@ namespace RimTalkExpandActions.Memory.Utils
                 
                 // 检查静态方法是否存在
                 MethodInfo importMethod = commonKnowledgeType.GetMethod(
-                    "ImportFromExternalMod",
+                    "ImportFromText",
                     BindingFlags.Public | BindingFlags.Static
                 );
                 
                 if (importMethod == null)
                 {
-                    return "? ImportFromExternalMod 方法不可用";
+                    return "? ImportFromText 方法不存在";
                 }
                 
                 return "? RimTalk-ExpandMemory 已就绪";
@@ -237,22 +224,48 @@ namespace RimTalkExpandActions.Memory.Utils
 
         private static string GetKnowledgeContent()
         {
-            // 使用 BehaviorRuleContents 中定义的规则内容
             var allRules = BehaviorRuleContents.GetAllRules();
+            var sb = new StringBuilder();
             
-            var lines = new List<string>();
-            
-            // 只输出规则，不添加注释或空行
             foreach (var ruleKvp in allRules)
             {
                 var rule = ruleKvp.Value;
-                // 格式：[标签|重要性]内容
-                var formattedContent = $"[{rule.Tag}|{rule.Importance:F1}]{rule.Content}";
-                lines.Add(formattedContent);
+                
+                // 清理规则内容：移除所有换行符和多余标点
+                string cleanContent = CleanRuleContent(rule.Content);
+                
+                // 格式: [标签|重要度]内容
+                string formattedLine = $"[{rule.Tag}|{rule.Importance:F1}]{cleanContent}";
+                
+                sb.AppendLine(formattedLine);
             }
             
-            // 用换行符连接，每条规则占一行
-            return string.Join("\n", lines);
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// 清理规则内容：移除换行符和多余标点符号
+        /// </summary>
+        private static string CleanRuleContent(string content)
+        {
+            if (string.IsNullOrEmpty(content))
+                return content;
+            
+            // 1. 移除所有类型的换行符
+            content = content.Replace("\r\n", " ");
+            content = content.Replace("\r", " ");
+            content = content.Replace("\n", " ");
+            
+            // 2. 移除多余的空格（连续空格替换为单个空格）
+            while (content.Contains("  "))
+            {
+                content = content.Replace("  ", " ");
+            }
+            
+            // 3. 移除字符串开头和结尾的空格
+            content = content.Trim();
+            
+            return content;
         }
 
         #endregion
