@@ -16,8 +16,8 @@ namespace RimTalkExpandActions.Memory.Utils
     /// - 用户需要在加载存档后通过 Mod 设置进行手动注入
     /// - 每个存档拥有独立的常识库实例
     /// 
-    /// 更新日志 v3.0：
-    /// - 使用新的 ImportFromText(string, bool) API
+    /// 更新日志 v3.1：
+    /// - 改用 AddEntry(string, string) API（逐条添加）
     /// - 移除所有换行符和多余标点符号
     /// - 优化规则内容格式为单行紧凑格式
     /// </summary>
@@ -85,78 +85,109 @@ namespace RimTalkExpandActions.Memory.Utils
                 
                 Log.Message($"[RimTalk-ExpandActions] ? 找到 CommonKnowledgeLibrary: {commonKnowledgeType.FullName}");
                 
-                // 3. 查找 ImportFromText 静态方法
-                Log.Message("[RimTalk-ExpandActions] 查找 ImportFromText 静态方法...");
+                // 3. 查找 AddEntry 静态方法
+                Log.Message("[RimTalk-ExpandActions] 查找 AddEntry 静态方法...");
                 
-                MethodInfo importMethod = commonKnowledgeType.GetMethod(
-                    "ImportFromText",
+                MethodInfo addEntryMethod = commonKnowledgeType.GetMethod(
+                    "AddEntry",
                     BindingFlags.Public | BindingFlags.Static,
                     null,
-                    new Type[] { typeof(string), typeof(bool) },
+                    new Type[] { typeof(string), typeof(string) },
                     null
                 );
                 
-                if (importMethod == null)
+                if (addEntryMethod == null)
                 {
-                    // 列出所有静态方法用于调试
-                    Log.Warning("[RimTalk-ExpandActions] 未找到标准签名，列出所有静态方法:");
-                    foreach (var method in commonKnowledgeType.GetMethods(BindingFlags.Public | BindingFlags.Static))
+                    // 尝试查找任何 AddEntry 方法
+                    var allAddEntryMethods = commonKnowledgeType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                        .Where(m => m.Name == "AddEntry")
+                        .ToList();
+                    
+                    if (allAddEntryMethods.Any())
                     {
-                        var pars = string.Join(", ", method.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"));
-                        Log.Message($"[RimTalk-ExpandActions]   - {method.Name}({pars}) -> {method.ReturnType.Name}");
-                    }
-                    
-                    result.ErrorMessage = "未找到 ImportFromText 静态方法，版本不兼容";
-                    Log.Error($"[RimTalk-ExpandActions] {result.ErrorMessage}");
-                    return result;
-                }
-                
-                Log.Message("[RimTalk-ExpandActions] ? 找到 ImportFromText 静态方法");
-                Log.Message($"[RimTalk-ExpandActions] 方法签名: {importMethod}");
-                
-                // 4. 准备注入内容
-                string knowledgeContent = GetKnowledgeContent();
-                result.TotalRules = BehaviorRuleContents.GetAllRules().Count;
-                
-                Log.Message($"[RimTalk-ExpandActions] 准备注入 {result.TotalRules} 条行为规则...");
-                
-                // 5. 调用静态方法，null 作为第一个参数因为是静态方法
-                object invokeResult = importMethod.Invoke(null, new object[]
-                {
-                    knowledgeContent,
-                    true // overwriteExisting
-                });
-                
-                // 6. 处理结果
-                if (invokeResult is int count)
-                {
-                    result.InjectedRules = count;
-                    result.Success = count > 0;
-                    
-                    // 添加规则名称列表
-                    var rules = GetRuleDescriptions();
-                    result.InjectedRuleNames = rules.Keys.ToList();
-                    
-                    if (result.Success)
-                    {
-                        Log.Message("[RimTalk-ExpandActions] ═══════════════════════════════════");
-                        Log.Message($"[RimTalk-ExpandActions] ??? 成功注入 {count} 条规则到当前存档 ???");
-                        Log.Message("[RimTalk-ExpandActions] ═══════════════════════════════════");
+                        addEntryMethod = allAddEntryMethods.First();
+                        Log.Message($"[RimTalk-ExpandActions] 使用找到的方法: {addEntryMethod.Name}");
                         
-                        foreach (var ruleName in result.InjectedRuleNames)
-                        {
-                            Log.Message($"[RimTalk-ExpandActions]   ? {ruleName}: {rules[ruleName]}");
-                        }
+                        var pars = string.Join(", ", addEntryMethod.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"));
+                        Log.Message($"[RimTalk-ExpandActions] 方法签名: {addEntryMethod.Name}({pars})");
                     }
                     else
                     {
-                        result.ErrorMessage = "注入完成但没有规则添加，可能已存在";
-                        Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                        result.ErrorMessage = "未找到 AddEntry 静态方法，版本不兼容";
+                        Log.Error($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                        
+                        // 列出所有可用方法
+                        Log.Warning("[RimTalk-ExpandActions] 可用的静态方法:");
+                        foreach (var method in commonKnowledgeType.GetMethods(BindingFlags.Public | BindingFlags.Static))
+                        {
+                            var pars = string.Join(", ", method.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"));
+                            Log.Message($"[RimTalk-ExpandActions]   - {method.Name}({pars}) -> {method.ReturnType.Name}");
+                        }
+                        
+                        return result;
+                    }
+                }
+                
+                Log.Message("[RimTalk-ExpandActions] ? 找到 AddEntry 静态方法");
+                
+                // 4. 准备注入内容
+                var allRules = BehaviorRuleContents.GetAllRules();
+                result.TotalRules = allRules.Count;
+                
+                Log.Message($"[RimTalk-ExpandActions] 准备注入 {result.TotalRules} 条行为规则...");
+                
+                // 5. 逐条调用 AddEntry
+                int successCount = 0;
+                var descriptions = GetRuleDescriptions();
+                
+                foreach (var ruleKvp in allRules)
+                {
+                    var rule = ruleKvp.Value;
+                    
+                    try
+                    {
+                        // 清理规则内容
+                        string cleanContent = CleanRuleContent(rule.Content);
+                        
+                        // 格式: [标签|重要度]内容
+                        string tag = $"[{rule.Tag}|{rule.Importance:F1}]";
+                        string fullContent = tag + cleanContent;
+                        
+                        // 调用 AddEntry(tag, content)
+                        addEntryMethod.Invoke(null, new object[] { rule.Id, fullContent });
+                        
+                        successCount++;
+                        result.InjectedRuleNames.Add(ruleKvp.Key);
+                        
+                        Log.Message($"[RimTalk-ExpandActions]   ? 已注入: {rule.Id}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning($"[RimTalk-ExpandActions]   ? 注入失败 {rule.Id}: {ex.Message}");
+                    }
+                }
+                
+                // 6. 处理结果
+                result.InjectedRules = successCount;
+                result.Success = successCount > 0;
+                
+                if (result.Success)
+                {
+                    Log.Message("[RimTalk-ExpandActions] ═══════════════════════════════════");
+                    Log.Message($"[RimTalk-ExpandActions] ??? 成功注入 {successCount} 条规则到当前存档 ???");
+                    Log.Message("[RimTalk-ExpandActions] ═══════════════════════════════════");
+                    
+                    foreach (var ruleName in result.InjectedRuleNames)
+                    {
+                        if (descriptions.ContainsKey(ruleName))
+                        {
+                            Log.Message($"[RimTalk-ExpandActions]   ? {ruleName}: {descriptions[ruleName]}");
+                        }
                     }
                 }
                 else
                 {
-                    result.ErrorMessage = $"注入方法返回类型不正确: {invokeResult?.GetType().Name ?? "null"}";
+                    result.ErrorMessage = "注入完成但没有规则添加";
                     Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
                 }
             }
@@ -189,14 +220,14 @@ namespace RimTalkExpandActions.Memory.Utils
                 }
                 
                 // 检查静态方法是否存在
-                MethodInfo importMethod = commonKnowledgeType.GetMethod(
-                    "ImportFromText",
+                MethodInfo addEntryMethod = commonKnowledgeType.GetMethod(
+                    "AddEntry",
                     BindingFlags.Public | BindingFlags.Static
                 );
                 
-                if (importMethod == null)
+                if (addEntryMethod == null)
                 {
-                    return "? ImportFromText 方法不存在";
+                    return "? AddEntry 方法不存在";
                 }
                 
                 return "? RimTalk-ExpandMemory 已就绪";
@@ -220,27 +251,6 @@ namespace RimTalkExpandActions.Memory.Utils
                 }
             }
             return null;
-        }
-
-        private static string GetKnowledgeContent()
-        {
-            var allRules = BehaviorRuleContents.GetAllRules();
-            var sb = new StringBuilder();
-            
-            foreach (var ruleKvp in allRules)
-            {
-                var rule = ruleKvp.Value;
-                
-                // 清理规则内容：移除所有换行符和多余标点
-                string cleanContent = CleanRuleContent(rule.Content);
-                
-                // 格式: [标签|重要度]内容
-                string formattedLine = $"[{rule.Tag}|{rule.Importance:F1}]{cleanContent}";
-                
-                sb.AppendLine(formattedLine);
-            }
-            
-            return sb.ToString();
         }
 
         /// <summary>
