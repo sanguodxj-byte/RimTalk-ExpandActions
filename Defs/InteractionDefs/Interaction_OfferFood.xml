@@ -1,43 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
-  <!-- 提供食物互动定义 -->
+  <!-- Offer Food Interaction Definition -->
   <InteractionDef>
     <defName>OfferFood</defName>
-    <label>提供食物</label>
+    <label>offer food</label>
     <workerClass>RimTalkExpandActions.SocialDining.InteractionWorker_OfferFood</workerClass>
     <socialFightBaseChance>0.0</socialFightBaseChance>
     <initiatorThought>OfferedFood</initiatorThought>
     <recipientThought>ReceivedFoodOffer</recipientThought>
     <initiatorXpGainSkill>Social</initiatorXpGainSkill>
     <initiatorXpGainAmount>15</initiatorXpGainAmount>
+    
+    <!-- Log entry when interaction triggers -->
+    <logRulesInitiator>
+      <rulesStrings>
+        <li>logentry(p=0.1)->[initiator_nameShortIndef] offered food to [recipient_nameShortDef].</li>
+      </rulesStrings>
+    </logRulesInitiator>
+    
+    <!-- Symbol for the log -->
+    <symbol>things/mote/speech</symbol>
   </InteractionDef>
-
-  <!-- 提供者心情（提供了食物） -->
-  <ThoughtDef>
-    <defName>OfferedFood</defName>
-    <durationDays>0.25</durationDays>
-    <stackLimit>1</stackLimit>
-    <stages>
-      <li>
-        <label>分享了食物</label>
-        <description>我分享了食物，感觉很有爱心。</description>
-        <baseMoodEffect>2</baseMoodEffect>
-      </li>
-    </stages>
-  </ThoughtDef>
-
-  <!-- 接收者心情（收到食物分享） -->
-  <ThoughtDef>
-    <defName>ReceivedFoodOffer</defName>
-    <thoughtClass>Thought_Memory</thoughtClass>
-    <durationDays>0.5</durationDays>
-    <stackLimit>1</stackLimit>
-    <stages>
-      <li>
-        <label>有人共享了</label>
-        <description>有人分享给我食物，我感到温暖。</description>
-        <baseMoodEffect>3</baseMoodEffect>
-      </li>
-    </stages>
-  </ThoughtDef>
 </Defs>

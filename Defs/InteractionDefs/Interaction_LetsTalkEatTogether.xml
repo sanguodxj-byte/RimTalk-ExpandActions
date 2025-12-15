@@ -8,8 +8,6 @@
   <InteractionDef>
     <defName>LetsTalkEatTogether</defName>
     <label>let's eat together</label>
-    <labelMale>suggest eating together</labelMale>
-    <labelFemale>suggest eating together</labelFemale>
     
     <!-- Log entry when interaction triggers -->
     <logRulesInitiator>
