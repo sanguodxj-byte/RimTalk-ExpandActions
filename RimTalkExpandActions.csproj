@@ -23,6 +23,10 @@
     <Compile Remove="Source\RimTalkExpandActionsSettingsUI.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Source\Examples\" />
+  </ItemGroup>
+
   <!-- 自动部署到 1.6 Assemblies 目录 -->
   <Target Name="DeployToModFolder" AfterTargets="Build">
     <PropertyGroup>
@@ -35,6 +39,6 @@
     <!-- 只复制到 1.6 版本目录 -->
     <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(Assemblies16Dir)" SkipUnchangedFiles="false" />
     
-    <Message Text="部署完成: $(AssemblyName).dll -> 1.6/Assemblies/" Importance="high" />
+    <Message Text="部署完成: $(AssemblyName).dll -&gt; 1.6/Assemblies/" Importance="high" />
   </Target>
 </Project>

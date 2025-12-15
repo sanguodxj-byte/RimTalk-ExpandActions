@@ -142,18 +142,29 @@ namespace RimTalkExpandActions.Memory.Utils
         #region 反射辅助方法
 
         /// <summary>
-        /// 查找类型（支持多个程序集）
+        /// 查找类型（优先查找外部程序集，排除自己）
         /// </summary>
         private static Type FindType(string fullTypeName)
         {
+            string currentAssemblyName = typeof(CrossModRecruitRuleInjector).Assembly.GetName().Name;
+            
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
+                // 跳过自己的程序集，确保找到外部 Mod 的类型
+                if (assembly.GetName().Name == currentAssemblyName)
+                {
+                    continue;
+                }
+                
                 Type type = assembly.GetType(fullTypeName);
                 if (type != null)
                 {
+                    Log.Message($"[RimTalk-ExpandActions] 找到类型 {fullTypeName} 在程序集 {assembly.GetName().Name}");
                     return type;
                 }
             }
+            
+            Log.Warning($"[RimTalk-ExpandActions] 未找到类型: {fullTypeName}");
             return null;
         }
 
