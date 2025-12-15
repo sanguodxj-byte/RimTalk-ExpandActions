@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
-  <!-- Éç½»ÓÃ²ÍÈÎÎñ¶¨Òå -->
+  <!-- ç¤¾äº¤ç”¨é¤ä»»åŠ¡å®šä¹‰ -->
   <JobDef>
     <defName>SocialDine</defName>
     <driverClass>RimTalkExpandActions.SocialDining.JobDriver_SocialDine</driverClass>
-    <reportString>ÕıÔÚÓëËûÈË¹²²Í</reportString>
+    <reportString>æ­£åœ¨ä¸ä»–äººå…±é¤</reportString>
     <allowOpportunisticPrefix>true</allowOpportunisticPrefix>
     <casualInterruptible>false</casualInterruptible>
     <suspendable>false</suspendable>
@@ -12,11 +12,4 @@
     <playerInterruptible>true</playerInterruptible>
     <makeTargetPrisoner>false</makeTargetPrisoner>
   </JobDef>
-
-  <!-- ThingComp ¶¨Òå - ¹²ÏíÊ³Îï×·×Ù -->
-  <ThingDef Name="SharedFoodTrackerBase" Abstract="True">
-    <comps>
-      <li Class="RimTalkExpandActions.SocialDining.CompProperties_SharedFoodTracker" />
-    </comps>
-  </ThingDef>
 </Defs>
