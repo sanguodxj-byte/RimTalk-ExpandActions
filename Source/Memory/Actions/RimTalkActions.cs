@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
 using Verse;
@@ -647,6 +648,216 @@ namespace RimTalkExpandActions.Memory.Actions
             catch (Exception ex)
             {
                 Log.Error($"[RimTalk-ExpandActions] ExecuteSocialDining 执行失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// 执行社交放松
+        /// 让多个小人进行社交放松活动（使用原版的社交娱乐系统）
+        /// </summary>
+        public static bool ExecuteSocialRelax(Pawn initiator, List<Pawn> participants)
+        {
+            try
+            {
+                if (initiator == null)
+                {
+                    Log.Error("[RimTalk-ExpandActions] ExecuteSocialRelax: initiator 为 null");
+                    return false;
+                }
+
+                if (participants == null || participants.Count == 0)
+                {
+                    Log.Error("[RimTalk-ExpandActions] ExecuteSocialRelax: 参与者列表为空");
+                    return false;
+                }
+
+                // 检查是否启用
+                if (!RimTalkExpandActionsMod.Settings.IsActionEnabled("social_relax"))
+                {
+                    Log.Warning("[RimTalk-ExpandActions] ExecuteSocialRelax: 社交放松功能已被禁用");
+                    return false;
+                }
+
+                // 检查成功率
+                float successChance = RimTalkExpandActionsMod.Settings.GetSuccessChance("social_relax");
+                if (Rand.Value > successChance)
+                {
+                    Log.Message($"[RimTalk-ExpandActions] ExecuteSocialRelax: 成功率检定失败 (需要 <= {successChance:P0})");
+                    Messages.Message("社交放松失败", MessageTypeDefOf.RejectInput);
+                    return false;
+                }
+
+                Log.Message($"[RimTalk-ExpandActions] 开始执行社交放松，参与者: {participants.Count} 人");
+
+                // 使用原版的 JoyGiver_SocialRelax 系统
+                // 查找合适的社交娱乐活动
+                int successCount = 0;
+                
+                foreach (var pawn in participants)
+                {
+                    if (pawn == null || pawn.Dead || !pawn.Spawned)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        // 给予放松心情
+                        if (pawn.needs?.mood != null)
+                        {
+                            // 添加"社交放松"心情加成
+                            Thought_Memory thought = (Thought_Memory)ThoughtMaker.MakeThought(ThoughtDefOf.Catharsis);
+                            if (thought != null)
+                            {
+                                pawn.needs.mood.thoughts.memories.TryGainMemory(thought);
+                            }
+                        }
+
+                        // 尝试让小人进行社交娱乐
+                        if (pawn.timetable != null)
+                        {
+                            // 临时设置为娱乐时间（如果需要）
+                            pawn.timetable.SetAssignment(GenLocalDate.HourOfDay(pawn), TimeAssignmentDefOf.Joy);
+                        }
+
+                        // 触发寻找社交娱乐的行为
+                        if (pawn.mindState != null)
+                        {
+                            pawn.mindState.lastInventoryRawFoodUseTick = 0; // 重置缓存
+                        }
+
+                        successCount++;
+                        Log.Message($"[RimTalk-ExpandActions]   {pawn.LabelShort} 开始社交放松");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"[RimTalk-ExpandActions] ExecuteSocialRelax: 处理 {pawn.LabelShort} 时出错: {ex.Message}");
+                    }
+                }
+
+                if (successCount > 0)
+                {
+                    string message = $"{successCount} 名小人开始社交放松";
+                    Messages.Message(message, MessageTypeDefOf.PositiveEvent);
+                    Log.Message($"[RimTalk-ExpandActions] 成功: {message}");
+                    return true;
+                }
+                else
+                {
+                    Log.Warning("[RimTalk-ExpandActions] ExecuteSocialRelax: 没有小人成功开始社交放松");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[RimTalk-ExpandActions] ExecuteSocialRelax 发生异常: {ex.Message}\n{ex.StackTrace}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 执行社交放松（从 JSON 调用，支持多个目标）
+        /// </summary>
+        public static bool ExecuteSocialRelax(Pawn initiator, string targetNames)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(targetNames))
+                {
+                    Log.Warning("[RimTalk-ExpandActions] ExecuteSocialRelax: 目标名称为空，将包含发起者自己");
+                    return ExecuteSocialRelax(initiator, new List<Pawn> { initiator });
+                }
+
+                // 解析目标名称（支持逗号分隔）
+                string[] names = targetNames.Split(new[] { ',', '，', ';', '；' }, StringSplitOptions.RemoveEmptyEntries);
+                List<Pawn> participants = new List<Pawn>();
+
+                // 添加发起者
+                if (initiator != null)
+                {
+                    participants.Add(initiator);
+                }
+
+                // 查找其他参与者
+                foreach (string name in names)
+                {
+                    string cleanName = name.Trim();
+                    if (string.IsNullOrEmpty(cleanName))
+                    {
+                        continue;
+                    }
+
+                    // 使用 AIResponsePostProcessor 的 FindPawnByName 方法
+                    Pawn target = FindPawnByNameInternal(cleanName);
+                    if (target != null && !participants.Contains(target))
+                    {
+                        participants.Add(target);
+                    }
+                    else
+                    {
+                        Log.Warning($"[RimTalk-ExpandActions] ExecuteSocialRelax: 未找到小人: {cleanName}");
+                    }
+                }
+
+                if (participants.Count == 0)
+                {
+                    Log.Error("[RimTalk-ExpandActions] ExecuteSocialRelax: 没有找到任何有效的参与者");
+                    return false;
+                }
+
+                return ExecuteSocialRelax(initiator, participants);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[RimTalk-ExpandActions] ExecuteSocialRelax 解析目标名称时出错: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 根据名称查找 Pawn（内部方法）
+        /// </summary>
+        private static Pawn FindPawnByNameInternal(string name)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    return null;
+                }
+
+                string normalizedName = name.ToLower().Replace(" ", "");
+
+                foreach (var map in Find.Maps)
+                {
+                    foreach (var pawn in map.mapPawns.AllPawns)
+                    {
+                        if (pawn == null || pawn.Name == null) continue;
+
+                        string shortName = pawn.Name.ToStringShort != null ? pawn.Name.ToStringShort.ToLower().Replace(" ", "") : "";
+                        string nickname = "";
+                        NameTriple nameTriple = pawn.Name as NameTriple;
+                        if (nameTriple != null && nameTriple.Nick != null)
+                        {
+                            nickname = nameTriple.Nick.ToLower().Replace(" ", "");
+                        }
+
+                        if (shortName.Contains(normalizedName) || 
+                            normalizedName.Contains(shortName) ||
+                            nickname.Contains(normalizedName) ||
+                            normalizedName.Contains(nickname))
+                        {
+                            return pawn;
+                        }
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[RimTalk-ExpandActions] FindPawnByNameInternal 失败: {ex.Message}");
+                return null;
             }
         }
 

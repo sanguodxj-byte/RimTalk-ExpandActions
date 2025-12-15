@@ -149,6 +149,10 @@ namespace RimTalkExpandActions.Memory
                         HandleSocialDiningAction(jsonBlock, targetPawn, recruiter);
                         break;
 
+                    case "social_relax":
+                        HandleSocialRelaxAction(jsonBlock, targetPawn, recruiter);
+                        break;
+
                     default:
                         Log.Warning(string.Format("[RimTalk-ExpandActions] 未知动作类型: {0}", action));
                         break;
@@ -183,6 +187,8 @@ namespace RimTalkExpandActions.Memory
                     return "送礼";
                 case "social_dining":
                     return "共餐";
+                case "social_relax":
+                    return "放松";
                 default:
                     return action;
             }
@@ -336,6 +342,25 @@ namespace RimTalkExpandActions.Memory
                 finalInitiator.Name.ToStringShort, finalTarget.Name.ToStringShort));
             
             RimTalkActions.ExecuteSocialDining(finalInitiator, finalTarget);
+        }
+
+        private static void HandleSocialRelaxAction(string jsonBlock, Pawn targetPawn, Pawn recruiter)
+        {
+            // 获取目标列表（支持多个参与者）
+            string targets = ExtractJsonField(jsonBlock, "targets");
+            
+            if (string.IsNullOrEmpty(targets))
+            {
+                // 如果没有指定targets，使用单个target
+                string singleTarget = ExtractJsonField(jsonBlock, "target");
+                targets = singleTarget;
+            }
+
+            Log.Message(string.Format("[RimTalk-ExpandActions] 检测到社交放松指令，参与者: {0}", 
+                string.IsNullOrEmpty(targets) ? "发起者自己" : targets));
+            
+            // 调用社交放松执行器
+            RimTalkActions.ExecuteSocialRelax(recruiter ?? targetPawn, targets);
         }
 
         #endregion

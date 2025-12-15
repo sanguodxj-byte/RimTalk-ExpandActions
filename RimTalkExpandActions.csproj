@@ -14,6 +14,12 @@
     <!-- 更新到 RimWorld 1.6 引用 -->
     <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.*" PrivateAssets="all" ExcludeAssets="runtime" />
     <PackageReference Include="Lib.Harmony" Version="2.3.3" PrivateAssets="all" ExcludeAssets="runtime" />
+    
+    <!-- 引用 RimTalk-ExpandMemory -->
+    <Reference Include="RimTalkExpandMemory">
+      <HintPath>..\RimTalk-ExpandMemory\1.6\Assemblies\RimTalkExpandMemory.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
@@ -21,6 +27,7 @@
     <Compile Remove="Bin\**" />
     <Compile Remove="Docs\**" />
     <Compile Remove="Source\RimTalkExpandActionsSettingsUI.cs" />
+    <None Include="Docs\**" />
   </ItemGroup>
 
   <ItemGroup>

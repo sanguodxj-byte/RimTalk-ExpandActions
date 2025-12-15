@@ -12,6 +12,9 @@ namespace RimTalkExpandActions
     public class RimTalkExpandActionsMod : Mod
     {
         public static RimTalkExpandActionsSettings Settings { get; private set; }
+        private static Vector2 scrollPosition;
+        private static bool showBehaviorSettings = false;
+        private static bool showSuccessRateSettings = false;
 
         public RimTalkExpandActionsMod(ModContentPack content) : base(content)
         {
@@ -41,8 +44,12 @@ namespace RimTalkExpandActions
         {
             try
             {
+                // 创建滚动视图
+                Rect viewRect = new Rect(0f, 0f, inRect.width - 20f, 1200f);
+                Widgets.BeginScrollView(inRect, ref scrollPosition, viewRect);
+                
                 Listing_Standard listingStandard = new Listing_Standard();
-                listingStandard.Begin(inRect);
+                listingStandard.Begin(viewRect);
                 
                 // === 标题 ===
                 Text.Font = GameFont.Medium;
@@ -51,11 +58,8 @@ namespace RimTalkExpandActions
                 listingStandard.Gap();
                 
                 // === 全局设置 ===
-                listingStandard.Label("━━━━━ 全局设置 ━━━━━");
+                listingStandard.Label("━━━ 全局设置 ━━━");
                 listingStandard.Gap(6f);
-                
-                listingStandard.CheckboxLabeled("自动注入规则到常识库", ref Settings.autoInjectRules, 
-                    "启动游戏时自动将所有行为规则注入到 RimTalk-ExpandMemory 的常识库");
                 
                 listingStandard.CheckboxLabeled("显示行为触发消息", ref Settings.showActionMessages,
                     "在游戏中显示行为触发的提示消息");
@@ -64,67 +68,124 @@ namespace RimTalkExpandActions
                     "在日志中记录详细的执行过程（用于调试）");
                 
                 listingStandard.Gap();
-                listingStandard.Label($"规则重要性: {Settings.ruleImportance:F1}");
-                Settings.ruleImportance = listingStandard.Slider(Settings.ruleImportance, 0f, 2f);
                 
-                listingStandard.Gap();
-                
-                // === 行为开关 ===
-                listingStandard.Label("━━━━━ 行为开关 ━━━━━");
+                // === 常识库注入 ===
+                listingStandard.Label("━━━ 常识库管理 ━━━");
                 listingStandard.Gap(6f);
                 
-                listingStandard.CheckboxLabeled("? 招募系统", ref Settings.enableRecruit,
-                    "通过对话招募 NPC 到殖民地");
+                // 显示状态
+                string status = Memory.Utils.ExpandMemoryKnowledgeInjector.CheckStatus();
+                GUI.color = status.Contains("?") ? Color.green : Color.yellow;
+                listingStandard.Label($"状态: {status}");
+                GUI.color = Color.white;
+                listingStandard.Gap(4f);
                 
-                listingStandard.CheckboxLabeled("? 社交用餐", ref Settings.enableSocialDining,
-                    "邀请他人共进晚餐，增进关系");
+                // 注入按钮
+                if (listingStandard.ButtonText("注入规则到当前存档", "将 7 种行为规则注入到当前存档的常识库"))
+                {
+                    InjectKnowledgeManually();
+                }
                 
-                listingStandard.CheckboxLabeled("? 投降/丢武器", ref Settings.enableDropWeapon,
-                    "让敌人放下武器投降");
+                if (listingStandard.ButtonText("查看规则列表", "查看将要注入的 7 种行为规则"))
+                {
+                    ShowRuleList();
+                }
                 
-                listingStandard.CheckboxLabeled("? 恋爱关系", ref Settings.enableRomance,
-                    "建立或结束恋人关系");
+                listingStandard.Gap(4f);
                 
-                listingStandard.CheckboxLabeled("? 灵感触发", ref Settings.enableInspiration,
-                    "给予角色工作/战斗/交易灵感");
-                
-                listingStandard.CheckboxLabeled("? 强制休息", ref Settings.enableRest,
-                    "让角色去休息或陷入昏迷");
-                
-                listingStandard.CheckboxLabeled("? 赠送物品", ref Settings.enableGift,
-                    "从背包中赠送物品给他人");
-                
-                listingStandard.Gap();
-                
-                // === 成功率设置 ===
-                listingStandard.Label("━━━━━ 成功率设置 ━━━━━");
-                listingStandard.Gap(6f);
-                
-                listingStandard.Label($"招募成功率: {Settings.recruitSuccessChance:P0}");
-                Settings.recruitSuccessChance = listingStandard.Slider(Settings.recruitSuccessChance, 0f, 1f);
-                
-                listingStandard.Label($"社交用餐成功率: {Settings.socialDiningSuccessChance:P0}");
-                Settings.socialDiningSuccessChance = listingStandard.Slider(Settings.socialDiningSuccessChance, 0f, 1f);
-                
-                listingStandard.Label($"投降成功率: {Settings.dropWeaponSuccessChance:P0}");
-                Settings.dropWeaponSuccessChance = listingStandard.Slider(Settings.dropWeaponSuccessChance, 0f, 1f);
-                
-                listingStandard.Label($"恋爱成功率: {Settings.romanceSuccessChance:P0}");
-                Settings.romanceSuccessChance = listingStandard.Slider(Settings.romanceSuccessChance, 0f, 1f);
-                
-                listingStandard.Label($"灵感成功率: {Settings.inspirationSuccessChance:P0}");
-                Settings.inspirationSuccessChance = listingStandard.Slider(Settings.inspirationSuccessChance, 0f, 1f);
-                
-                listingStandard.Label($"休息成功率: {Settings.restSuccessChance:P0}");
-                Settings.restSuccessChance = listingStandard.Slider(Settings.restSuccessChance, 0f, 1f);
-                
-                listingStandard.Label($"赠送成功率: {Settings.giftSuccessChance:P0}");
-                Settings.giftSuccessChance = listingStandard.Slider(Settings.giftSuccessChance, 0f, 1f);
+                // 帮助提示
+                GUI.color = new Color(1f, 1f, 0.7f);
+                listingStandard.Label("提示：常识库是存档级别的数据");
+                listingStandard.Label("? 每次加载新存档后需要重新注入");
+                listingStandard.Label("? 注入后规则将永久保存在该存档中");
+                GUI.color = Color.white;
                 
                 listingStandard.Gap();
                 
-                // === 操作按钮 ===
-                listingStandard.Label("━━━━━ 操作 ━━━━━");
+                // === 行为设置（可折叠） ===
+                Rect behaviorHeaderRect = listingStandard.GetRect(30f);
+                if (Widgets.ButtonText(behaviorHeaderRect, showBehaviorSettings ? "▼ 行为开关" : "? 行为开关"))
+                {
+                    showBehaviorSettings = !showBehaviorSettings;
+                }
+                
+                if (showBehaviorSettings)
+                {
+                    listingStandard.Gap(6f);
+                    listingStandard.Indent(20f);
+                    
+                    listingStandard.CheckboxLabeled("招募系统", ref Settings.enableRecruit,
+                        "通过对话招募 NPC 到殖民地");
+                    
+                    listingStandard.CheckboxLabeled("社交用餐", ref Settings.enableSocialDining,
+                        "邀请他人共进晚餐，增进关系");
+                    
+                    listingStandard.CheckboxLabeled("投降/丢武器", ref Settings.enableDropWeapon,
+                        "让敌人放下武器投降");
+                    
+                    listingStandard.CheckboxLabeled("恋爱关系", ref Settings.enableRomance,
+                        "建立或结束恋人关系");
+                    
+                    listingStandard.CheckboxLabeled("灵感触发", ref Settings.enableInspiration,
+                        "给予角色工作/战斗/交易灵感");
+                    
+                    listingStandard.CheckboxLabeled("强制休息", ref Settings.enableRest,
+                        "让角色去休息或陷入昏迷");
+                    
+                    listingStandard.CheckboxLabeled("赠送物品", ref Settings.enableGift,
+                        "从背包中赠送物品给他人");
+                    
+                    listingStandard.CheckboxLabeled("社交放松", ref Settings.enableSocialRelax,
+                        "指令多个小人进行社交放松活动");
+                    
+                    listingStandard.Outdent(20f);
+                }
+                
+                listingStandard.Gap();
+                
+                // === 成功率设置（可折叠） ===
+                Rect successRateHeaderRect = listingStandard.GetRect(30f);
+                if (Widgets.ButtonText(successRateHeaderRect, showSuccessRateSettings ? "▼ 成功率设置" : "? 成功率设置"))
+                {
+                    showSuccessRateSettings = !showSuccessRateSettings;
+                }
+                
+                if (showSuccessRateSettings)
+                {
+                    listingStandard.Gap(6f);
+                    listingStandard.Indent(20f);
+                    
+                    listingStandard.Label($"招募成功率: {Settings.recruitSuccessChance:P0}");
+                    Settings.recruitSuccessChance = listingStandard.Slider(Settings.recruitSuccessChance, 0f, 1f);
+                    
+                    listingStandard.Label($"社交用餐成功率: {Settings.socialDiningSuccessChance:P0}");
+                    Settings.socialDiningSuccessChance = listingStandard.Slider(Settings.socialDiningSuccessChance, 0f, 1f);
+                    
+                    listingStandard.Label($"投降成功率: {Settings.dropWeaponSuccessChance:P0}");
+                    Settings.dropWeaponSuccessChance = listingStandard.Slider(Settings.dropWeaponSuccessChance, 0f, 1f);
+                    
+                    listingStandard.Label($"恋爱成功率: {Settings.romanceSuccessChance:P0}");
+                    Settings.romanceSuccessChance = listingStandard.Slider(Settings.romanceSuccessChance, 0f, 1f);
+                    
+                    listingStandard.Label($"灵感成功率: {Settings.inspirationSuccessChance:P0}");
+                    Settings.inspirationSuccessChance = listingStandard.Slider(Settings.inspirationSuccessChance, 0f, 1f);
+                    
+                    listingStandard.Label($"休息成功率: {Settings.restSuccessChance:P0}");
+                    Settings.restSuccessChance = listingStandard.Slider(Settings.restSuccessChance, 0f, 1f);
+                    
+                    listingStandard.Label($"赠送成功率: {Settings.giftSuccessChance:P0}");
+                    Settings.giftSuccessChance = listingStandard.Slider(Settings.giftSuccessChance, 0f, 1f);
+                    
+                    listingStandard.Label($"社交放松成功率: {Settings.socialRelaxSuccessChance:P0}");
+                    Settings.socialRelaxSuccessChance = listingStandard.Slider(Settings.socialRelaxSuccessChance, 0f, 1f);
+                    
+                    listingStandard.Outdent(20f);
+                }
+                
+                listingStandard.Gap();
+                
+                // === 其他操作 ===
+                listingStandard.Label("━━━ 其他操作 ━━━");
                 listingStandard.Gap(6f);
                 
                 if (listingStandard.ButtonText("重置为默认值"))
@@ -133,49 +194,79 @@ namespace RimTalkExpandActions
                     Messages.Message("设置已重置为默认值", MessageTypeDefOf.NeutralEvent);
                 }
                 
-                if (listingStandard.ButtonText("手动注入规则到常识库"))
-                {
-                    // 调用注入器
-                    try
-                    {
-                        var allRules = Memory.Utils.BehaviorRuleContents.GetAllRules();
-                        int successCount = 0;
-                        
-                        foreach (var ruleKvp in allRules)
-                        {
-                            bool success = Memory.Utils.CrossModRecruitRuleInjector.TryInjectRule(
-                                ruleKvp.Value.Id,
-                                ruleKvp.Value.Tag,
-                                ruleKvp.Value.Content,
-                                ruleKvp.Value.Keywords,
-                                ruleKvp.Value.Importance
-                            );
-                            
-                            if (success) successCount++;
-                        }
-                        
-                        Messages.Message($"成功注入 {successCount} 条规则", MessageTypeDefOf.PositiveEvent);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error($"[RimTalk-ExpandActions] 手动注入失败: {ex.Message}");
-                        Messages.Message("注入失败，请查看日志", MessageTypeDefOf.RejectInput);
-                    }
-                }
-                
                 listingStandard.Gap();
+                GUI.color = Color.gray;
                 listingStandard.Label("提示：修改设置后会自动保存");
+                GUI.color = Color.white;
                 
                 listingStandard.End();
+                Widgets.EndScrollView();
             }
             catch (Exception ex)
             {
                 Log.Error($"[RimTalk-ExpandActions] 设置界面错误: {ex.Message}\n{ex.StackTrace}");
             }
         }
-        
-        private static Vector2 scrollPosition;
-        private static Rect viewRect = new Rect(0f, 0f, 600f, 400f);
+
+        private void InjectKnowledgeManually()
+        {
+            try
+            {
+                var result = Memory.Utils.ExpandMemoryKnowledgeInjector.ManualInject();
+                
+                if (result.Success)
+                {
+                    string detailedMessage = $"成功导入 {result.InjectedRules} 条规则：\n\n";
+                    var rules = Memory.Utils.ExpandMemoryKnowledgeInjector.GetRuleDescriptions();
+                    
+                    foreach (var ruleName in result.InjectedRuleNames)
+                    {
+                        if (rules.ContainsKey(ruleName))
+                        {
+                            detailedMessage += $"? {ruleName}\n  {rules[ruleName]}\n\n";
+                        }
+                    }
+                    
+                    Messages.Message(
+                        $"RimTalk-ExpandActions: 已成功导入 {result.InjectedRules} 条行为规则到当前存档！",
+                        MessageTypeDefOf.PositiveEvent,
+                        false
+                    );
+                    
+                    Log.Message($"[RimTalk-ExpandActions] 用户手动注入成功");
+                    Log.Message(detailedMessage);
+                }
+                else
+                {
+                    Messages.Message(
+                        $"注入失败: {result.ErrorMessage}",
+                        MessageTypeDefOf.RejectInput,
+                        false
+                    );
+                    Log.Warning($"[RimTalk-ExpandActions] 用户手动注入失败: {result.ErrorMessage}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[RimTalk-ExpandActions] 手动注入异常: {ex.Message}");
+                Messages.Message("注入失败，请查看日志", MessageTypeDefOf.RejectInput);
+            }
+        }
+
+        private void ShowRuleList()
+        {
+            var rules = Memory.Utils.ExpandMemoryKnowledgeInjector.GetRuleDescriptions();
+            string rulesList = "将注入以下 7 种行为规则：\n\n";
+            
+            int index = 1;
+            foreach (var rule in rules)
+            {
+                rulesList += $"{index}. {rule.Key}\n   {rule.Value}\n\n";
+                index++;
+            }
+            
+            Find.WindowStack.Add(new Dialog_MessageBox(rulesList));
+        }
 
         public override void WriteSettings()
         {
@@ -192,119 +283,44 @@ namespace RimTalkExpandActions
         // ===== 全局设置 =====
         
         /// <summary>
-        /// 是否启用自动注入规则
+        /// 是否在游戏中显示行为触发提示
         /// </summary>
-        public bool autoInjectRules = true;
+        public bool showActionMessages = true;
 
-        /// <summary>
-        /// 规则重要性（影响 AI 检索优先级）
-        /// </summary>
-        public float ruleImportance = 1.0f;
-
-        /// <summary>
-        /// 自定义招募规则内容
-        /// </summary>
-        public string customRecruitRuleContent = "";
-
-        /// <summary>
-        /// 上次手动注入时间（用于防止重复点击）
-        /// </summary>
-        public long lastManualInjectTime = 0;
-
-        // ===== 行为开关 =====
-
-        /// <summary>
-        /// 启用招募功能
-        /// </summary>
-        public bool enableRecruit = true;
-
-        /// <summary>
-        /// 启用投降/丢武器功能
-        /// </summary>
-        public bool enableDropWeapon = true;
-
-        /// <summary>
-        /// 启用恋爱关系功能
-        /// </summary>
-        public bool enableRomance = true;
-
-        /// <summary>
-        /// 启用灵感触发功能
-        /// </summary>
-        public bool enableInspiration = true;
-
-        /// <summary>
-        /// 启用休息/昏迷功能
-        /// </summary>
-        public bool enableRest = true;
-
-        /// <summary>
-        /// 启用物品赠送功能
-        /// </summary>
-        public bool enableGift = true;
-
-        /// <summary>
-        /// 启用社交用餐功能
-        /// </summary>
-        public bool enableSocialDining = true;
-
-        // ===== 成功难度系数 (0.0 - 1.0) =====
-
-        /// <summary>
-        /// 招募成功率系数（0.0 = 必定失败, 1.0 = 100%成功）
-        /// </summary>
-        public float recruitSuccessChance = 1.0f;
-
-        /// <summary>
-        /// 投降成功率系数
-        /// </summary>
-        public float dropWeaponSuccessChance = 1.0f;
-
-        /// <summary>
-        /// 恋爱成功率系数
-        /// </summary>
-        public float romanceSuccessChance = 1.0f;
-
-        /// <summary>
-        /// 灵感触发成功率系数
-        /// </summary>
-        public float inspirationSuccessChance = 1.0f;
-
-        /// <summary>
-        /// 休息成功率系数
-        /// </summary>
-        public float restSuccessChance = 1.0f;
-
-        /// <summary>
-        /// 赠送成功率系数
-        /// </summary>
-        public float giftSuccessChance = 1.0f;
-
-        /// <summary>
-        /// 社交用餐成功率系数
-        /// </summary>
-        public float socialDiningSuccessChance = 1.0f;
-
-        // ===== 逻辑配置 =====
         /// <summary>
         /// 是否显示详细日志
         /// </summary>
         public bool enableDetailedLogging = false;
 
-        /// <summary>
-        /// 是否在游戏中显示行为触发提示
-        /// </summary>
-        public bool showActionMessages = true;
+        // ===== 行为开关 =====
+
+        public bool enableRecruit = true;
+        public bool enableDropWeapon = true;
+        public bool enableRomance = true;
+        public bool enableInspiration = true;
+        public bool enableRest = true;
+        public bool enableGift = true;
+        public bool enableSocialDining = true;
+        public bool enableSocialRelax = true;  // 新增：社交放松
+
+        // ===== 成功难度系数 (0.0 - 1.0) =====
+
+        public float recruitSuccessChance = 1.0f;
+        public float dropWeaponSuccessChance = 1.0f;
+        public float romanceSuccessChance = 1.0f;
+        public float inspirationSuccessChance = 1.0f;
+        public float restSuccessChance = 1.0f;
+        public float giftSuccessChance = 1.0f;
+        public float socialDiningSuccessChance = 1.0f;
+        public float socialRelaxSuccessChance = 1.0f;  // 新增：社交放松成功率
 
         public override void ExposeData()
         {
             base.ExposeData();
             
             // 全局设置
-            Scribe_Values.Look(ref autoInjectRules, "autoInjectRules", true);
-            Scribe_Values.Look(ref ruleImportance, "ruleImportance", 1.0f);
-            Scribe_Values.Look(ref customRecruitRuleContent, "customRecruitRuleContent", "");
-            Scribe_Values.Look(ref lastManualInjectTime, "lastManualInjectTime", 0L);
+            Scribe_Values.Look(ref showActionMessages, "showActionMessages", true);
+            Scribe_Values.Look(ref enableDetailedLogging, "enableDetailedLogging", false);
 
             // 行为开关
             Scribe_Values.Look(ref enableRecruit, "enableRecruit", true);
@@ -314,6 +330,7 @@ namespace RimTalkExpandActions
             Scribe_Values.Look(ref enableRest, "enableRest", true);
             Scribe_Values.Look(ref enableGift, "enableGift", true);
             Scribe_Values.Look(ref enableSocialDining, "enableSocialDining", true);
+            Scribe_Values.Look(ref enableSocialRelax, "enableSocialRelax", true);
 
             // 成功难度系数
             Scribe_Values.Look(ref recruitSuccessChance, "recruitSuccessChance", 1.0f);
@@ -323,10 +340,7 @@ namespace RimTalkExpandActions
             Scribe_Values.Look(ref restSuccessChance, "restSuccessChance", 1.0f);
             Scribe_Values.Look(ref giftSuccessChance, "giftSuccessChance", 1.0f);
             Scribe_Values.Look(ref socialDiningSuccessChance, "socialDiningSuccessChance", 1.0f);
-
-            // 高级设置
-            Scribe_Values.Look(ref enableDetailedLogging, "enableDetailedLogging", false);
-            Scribe_Values.Look(ref showActionMessages, "showActionMessages", true);
+            Scribe_Values.Look(ref socialRelaxSuccessChance, "socialRelaxSuccessChance", 1.0f);
         }
 
         /// <summary>
@@ -334,9 +348,8 @@ namespace RimTalkExpandActions
         /// </summary>
         public void ResetToDefault()
         {
-            autoInjectRules = true;
-            ruleImportance = 1.0f;
-            customRecruitRuleContent = "";
+            showActionMessages = true;
+            enableDetailedLogging = false;
 
             enableRecruit = true;
             enableDropWeapon = true;
@@ -345,6 +358,7 @@ namespace RimTalkExpandActions
             enableRest = true;
             enableGift = true;
             enableSocialDining = true;
+            enableSocialRelax = true;
 
             recruitSuccessChance = 1.0f;
             dropWeaponSuccessChance = 1.0f;
@@ -353,9 +367,7 @@ namespace RimTalkExpandActions
             restSuccessChance = 1.0f;
             giftSuccessChance = 1.0f;
             socialDiningSuccessChance = 1.0f;
-
-            enableDetailedLogging = false;
-            showActionMessages = true;
+            socialRelaxSuccessChance = 1.0f;
         }
 
         /// <summary>
@@ -383,6 +395,9 @@ namespace RimTalkExpandActions
                 case "social_dining":
                 case "dining":
                     return enableSocialDining;
+                case "social_relax":
+                case "relax":
+                    return enableSocialRelax;
                 default:
                     return true;
             }
@@ -413,6 +428,9 @@ namespace RimTalkExpandActions
                 case "social_dining":
                 case "dining":
                     return socialDiningSuccessChance;
+                case "social_relax":
+                case "relax":
+                    return socialRelaxSuccessChance;
                 default:
                     return 1.0f;
             }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Verse;
@@ -7,219 +8,220 @@ using RimWorld;
 namespace RimTalkExpandActions.Memory.Utils
 {
     /// <summary>
-    /// RimTalk-ExpandMemory 常识库自动注入器
-    /// 在 Mod 加载时自动将行为规则导入到 ExpandMemory 的常识库中
+    /// RimTalk-ExpandMemory 常识库手动注入器
+    /// 
+    /// 设计说明：
+    /// - 常识库是存档级别的数据，不在游戏启动时自动注入
+    /// - 用户需要在加载存档后，通过 Mod 设置界面手动注入
+    /// - 每个存档有独立的常识库实例
+    /// 
+    /// 更新日志 v2.0：
+    /// - 修复：ImportFromExternalMod 是**静态方法**，不是实例方法！
     /// </summary>
-    [StaticConstructorOnStartup]
     public static class ExpandMemoryKnowledgeInjector
     {
-        // 常识内容 - 使用 ExpandMemory 支持的格式
-        private const string KNOWLEDGE_CONTENT = @"
-// ━━━━━ RimTalk-ExpandActions 行为规则 ━━━━━
-// 这些规则定义了 AI 可以触发的游戏行为
-// 格式：[标签|重要性]内容
-// 重要性范围：0.0 到 1.0（越高越优先）
-
-// === 招募系统 ===
-[行为-招募|1.0]当对话涉及招募、加入、投靠、派系等话题，且目标 NPC 明确表示同意加入玩家派系时（例如说""我愿意加入""、""好吧，我跟你走""），请在回复末尾附加 JSON 指令：{""action"": ""recruit"", ""target"": ""NPC名字""}。注意：仅在对方明确同意时才输出此指令，拒绝或犹豫时不输出。
-
-// === 投降/丢弃武器 ===
-[行为-投降|1.0]当对话涉及投降、放下武器、认输、别杀我等话题，且 NPC 明确表示愿意投降或放下武器时，请在回复末尾附加 JSON 指令：{""action"": ""drop_weapon"", ""target"": ""NPC名字""}。示例场景：玩家威胁""放下武器，否则开枪！""，NPC 回应""好好好，我投降！别开枪！{""action"": ""drop_weapon"", ""target"": ""张三""}""。注意：NPC 必须明确表达投降意愿才输出指令。
-
-// === 恋爱关系 ===
-[行为-恋爱|0.9]当对话涉及爱、喜欢、做我女朋友/男朋友、在一起、分手等话题时：1) 如果双方确立恋爱关系，输出：{""action"": ""romance"", ""target"": ""NPC名字"", ""partner"": ""另一方名字"", ""type"": ""new_lover""}；2) 如果决定分手，输出：{""action"": ""romance"", ""target"": ""NPC名字"", ""partner"": ""另一方名字"", ""type"": ""breakup""}。注意：必须双方都同意才输出指令。
-
-// === 灵感触发 ===
-[行为-灵感|0.8]当对话涉及灵感、启发、顿悟、加油、鼓励等激励性话题，且 NPC 受到鼓舞时，根据场景输出对应灵感 JSON：1) 战斗相关 → {""action"": ""give_inspiration"", ""target"": ""NPC名字"", ""type"": ""frenzy_shoot""}；2) 工作相关 → {""action"": ""give_inspiration"", ""target"": ""NPC名字"", ""type"": ""frenzy_work""}；3) 交易相关 → {""action"": ""give_inspiration"", ""target"": ""NPC名字"", ""type"": ""inspired_trade""}。注意：灵感应基于对话内容自然触发。
-
-// === 强制休息 ===
-[行为-休息|0.7]当对话涉及休息、睡觉、困了、累了等话题时：1) 正常休息（去床上睡觉）→ {""action"": ""force_rest"", ""target"": ""NPC名字"", ""immediate"": false}；2) 极度疲劳/昏迷 → {""action"": ""force_rest"", ""target"": ""NPC名字"", ""immediate"": true}。注意：immediate=true 仅用于极端疲劳场景。
-
-// === 赠送物品 ===
-[行为-赠送|0.8]当对话涉及给你、赠送、礼物、拿去、送你等赠送行为，且 NPC 明确表示要赠送某物时，输出 JSON：{""action"": ""give_item"", ""target"": ""NPC名字"", ""item_keyword"": ""物品关键词""}。item_keyword 应为物品名称的关键部分，例如：""药""（匹配药品）、""枪""（匹配武器）、""银""（匹配银币）、""食物""（匹配食物）。注意：NPC 必须确实拥有该物品才能赠送。
-
-// === 社交用餐 ===
-[行为-用餐|0.9]当对话双方决定一起吃饭、分享食物、举办小型聚餐或庆祝时，且双方关系良好，请在回复末尾附加 JSON：{""action"": ""social_dining"", ""target"": ""对方名字""}。示例：""一起吃饭吧？"" → ""好啊，我也饿了！{""action"": ""social_dining"", ""target"": ""玩家角色""}""。注意：仅在确认要执行此行动时输出。
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━
-";
-
-        // 静态构造函数 - Mod 加载时自动执行
-        static ExpandMemoryKnowledgeInjector()
+        /// <summary>
+        /// 注入结果
+        /// </summary>
+        public class InjectionResult
         {
-            try
-            {
-                // 延迟到游戏完全初始化后执行
-                LongEventHandler.ExecuteWhenFinished(() =>
-                {
-                    try
-                    {
-                        InjectKnowledgeToExpandMemory();
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error($"[RimTalk-ExpandActions] 常识库注入失败: {ex.Message}\n{ex.StackTrace}");
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"[RimTalk-ExpandActions] ExpandMemoryKnowledgeInjector 初始化失败: {ex.Message}");
-            }
+            public bool Success { get; set; }
+            public int TotalRules { get; set; }
+            public int InjectedRules { get; set; }
+            public List<string> InjectedRuleNames { get; set; } = new List<string>();
+            public string ErrorMessage { get; set; }
         }
 
         /// <summary>
-        /// 向 RimTalk-ExpandMemory 注入常识内容
+        /// 获取所有行为规则的描述
         /// </summary>
-        private static void InjectKnowledgeToExpandMemory()
+        public static Dictionary<string, string> GetRuleDescriptions()
         {
+            return new Dictionary<string, string>
+            {
+                { "招募系统", "通过对话招募 NPC 到殖民地" },
+                { "社交用餐", "邀请他人共进晚餐，增进关系" },
+                { "投降系统", "让敌人放下武器投降" },
+                { "恋爱关系", "建立或结束恋人关系" },
+                { "灵感触发", "给予角色工作/战斗/交易灵感" },
+                { "强制休息", "让角色去休息或陷入昏迷" },
+                { "赠送物品", "从背包中赠送物品给他人" },
+                { "社交放松", "指令多个小人进行社交娱乐活动" }
+            };
+        }
+
+        /// <summary>
+        /// 手动注入常识库到当前存档
+        /// </summary>
+        public static InjectionResult ManualInject()
+        {
+            var result = new InjectionResult();
+            
             try
             {
-                Log.Message("[RimTalk-ExpandActions] ━━━━━ 开始常识库注入流程 ━━━━━");
+                Log.Message("[RimTalk-ExpandActions] ━━━━━ 手动注入常识库 ━━━━━");
                 
-                // 1. 检查 RimTalk-ExpandMemory 是否已加载
-                Log.Message("[RimTalk-ExpandActions] [1/5] 检查 RimTalk-ExpandMemory 是否启用...");
-                bool isActive = ModsConfig.IsActive("RimTalk.ExpandMemory");
-                Log.Message($"[RimTalk-ExpandActions]   → ModsConfig.IsActive('RimTalk.ExpandMemory') = {isActive}");
-                
-                if (!isActive)
+                // 1. 检查是否有活动的游戏
+                if (Current.Game == null || Find.World == null)
                 {
-                    Log.Warning("[RimTalk-ExpandActions] ? RimTalk-ExpandMemory 未启用，跳过常识库注入");
-                    Log.Warning("[RimTalk-ExpandActions] 提示：启用 RimTalk-ExpandMemory 以获得智能规则检索功能");
-                    Log.Message("[RimTalk-ExpandActions] ━━━━━ 注入流程结束（跳过） ━━━━━");
-                    return;
+                    result.ErrorMessage = "请先加载或创建游戏存档";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
                 }
                 
-                Log.Message("[RimTalk-ExpandActions]   ? ExpandMemory 已启用");
-
-                // 2. 通过反射查找 CommonKnowledgeLibrary 类型
-                Log.Message("[RimTalk-ExpandActions] [2/5] 查找 CommonKnowledgeLibrary 类型...");
-                Type commonKnowledgeType = FindType("RimTalk.Memory.CommonKnowledgeLibrary");
+                Log.Message("[RimTalk-ExpandActions] ? 当前有活动的游戏存档");
                 
+                // 2. 查找 CommonKnowledgeLibrary 类型
+                Type commonKnowledgeType = FindType("RimTalk.Memory.CommonKnowledgeLibrary");
                 if (commonKnowledgeType == null)
                 {
-                    Log.Warning("[RimTalk-ExpandActions] ? 未找到 CommonKnowledgeLibrary 类型");
-                    Log.Warning("[RimTalk-ExpandActions] 可能是 RimTalk-ExpandMemory 版本不兼容");
-                    
-                    // 列出所有 RimTalk 相关的程序集和类型
-                    Log.Message("[RimTalk-ExpandActions] 列出所有 RimTalk 相关程序集:");
-                    foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-                    {
-                        if (assembly.FullName.Contains("RimTalk"))
-                        {
-                            Log.Message($"[RimTalk-ExpandActions]   - 程序集: {assembly.GetName().Name}");
-                        }
-                    }
-                    
-                    Log.Message("[RimTalk-ExpandActions] ━━━━━ 注入流程结束（失败） ━━━━━");
-                    return;
+                    result.ErrorMessage = "未找到 RimTalk-ExpandMemory（请确保已安装并启用）";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
                 }
                 
-                Log.Message($"[RimTalk-ExpandActions]   ? 找到类型: {commonKnowledgeType.FullName}");
-                Log.Message($"[RimTalk-ExpandActions]   程序集: {commonKnowledgeType.Assembly.GetName().Name}");
-
-                // 3. 查找 ImportFromExternalMod 方法
-                Log.Message("[RimTalk-ExpandActions] [3/5] 查找 ImportFromExternalMod 方法...");
+                Log.Message($"[RimTalk-ExpandActions] ? 找到 CommonKnowledgeLibrary: {commonKnowledgeType.FullName}");
+                Log.Message($"[RimTalk-ExpandActions] 程序集: {commonKnowledgeType.Assembly.GetName().Name}");
+                
+                // 3. 查找 ImportFromExternalMod 静态方法
+                Log.Message("[RimTalk-ExpandActions] 查找 ImportFromExternalMod 静态方法...");
+                
                 MethodInfo importMethod = commonKnowledgeType.GetMethod(
                     "ImportFromExternalMod",
-                    BindingFlags.Public | BindingFlags.Static,
+                    BindingFlags.Public | BindingFlags.Static,  // ← 关键：Static！
                     null,
                     new Type[] { typeof(string), typeof(string), typeof(bool) },
                     null
                 );
-
+                
                 if (importMethod == null)
                 {
-                    Log.Warning("[RimTalk-ExpandActions] ? 未找到 ImportFromExternalMod 方法");
-                    Log.Warning("[RimTalk-ExpandActions] 请更新 RimTalk-ExpandMemory 到最新版本");
-                    
-                    // 列出所有公共静态方法
-                    Log.Message("[RimTalk-ExpandActions] CommonKnowledgeLibrary 可用方法:");
+                    // 列出所有静态方法帮助诊断
+                    Log.Warning("[RimTalk-ExpandActions] 未找到标准签名，列出所有静态方法:");
                     foreach (var method in commonKnowledgeType.GetMethods(BindingFlags.Public | BindingFlags.Static))
                     {
-                        var methodParameters = string.Join(", ", method.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"));
-                        Log.Message($"[RimTalk-ExpandActions]   - {method.Name}({methodParameters})");
+                        var pars = string.Join(", ", method.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"));
+                        Log.Message($"[RimTalk-ExpandActions]   - {method.Name}({pars}) -> {method.ReturnType.Name}");
                     }
                     
-                    Log.Message("[RimTalk-ExpandActions] ━━━━━ 注入流程结束（失败） ━━━━━");
-                    return;
-                }
-                
-                Log.Message($"[RimTalk-ExpandActions]   ? 找到方法: {importMethod.Name}");
-                var methodParams = string.Join(", ", importMethod.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"));
-                Log.Message($"[RimTalk-ExpandActions]   签名: {importMethod.Name}({methodParams})");
-
-                // 4. 调用导入方法
-                Log.Message("[RimTalk-ExpandActions] [4/5] 调用 ImportFromExternalMod...");
-                Log.Message($"[RimTalk-ExpandActions]   参数 1 (knowledgeText): {KNOWLEDGE_CONTENT.Length} 字符");
-                Log.Message($"[RimTalk-ExpandActions]   参数 2 (sourceModName): 'RimTalk-ExpandActions'");
-                Log.Message($"[RimTalk-ExpandActions]   参数 3 (overwriteExisting): true");
-                
-                object[] parameters = new object[]
-                {
-                    KNOWLEDGE_CONTENT,              // knowledgeText
-                    "RimTalk-ExpandActions",        // sourceModName
-                    true                             // overwriteExisting
-                };
-
-                object result = importMethod.Invoke(null, parameters);
-                
-                Log.Message($"[RimTalk-ExpandActions]   ? API 调用成功");
-                
-                // 5. 检查返回值（导入的条目数量）
-                Log.Message("[RimTalk-ExpandActions] [5/5] 检查导入结果...");
-                
-                if (result is int count)
-                {
-                    Log.Message($"[RimTalk-ExpandActions]   返回值: {count} 条规则");
+                    // 尝试查找任何名为 ImportFromExternalMod 的静态方法
+                    var allImportMethods = commonKnowledgeType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                        .Where(m => m.Name == "ImportFromExternalMod")
+                        .ToList();
                     
-                    if (count > 0)
+                    if (allImportMethods.Any())
                     {
-                        Log.Message($"[RimTalk-ExpandActions] ━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                        Log.Message($"[RimTalk-ExpandActions] ??? 成功导入 {count} 条行为规则到常识库 ???");
-                        Log.Message($"[RimTalk-ExpandActions] ━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                        
-                        Messages.Message(
-                            $"RimTalk-ExpandActions: 已导入 {count} 条行为规则",
-                            MessageTypeDefOf.PositiveEvent,
-                            false
-                        );
+                        importMethod = allImportMethods.First();
+                        Log.Message($"[RimTalk-ExpandActions] 使用找到的方法: {importMethod.Name}");
                     }
                     else
                     {
-                        Log.Warning("[RimTalk-ExpandActions] ? 导入完成，但没有有效的规则被添加");
-                        Log.Warning("[RimTalk-ExpandActions] 可能是规则格式不正确");
+                        result.ErrorMessage = "未找到 ImportFromExternalMod 静态方法（版本不兼容）";
+                        Log.Error($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                        Log.Error("[RimTalk-ExpandActions] 请更新 RimTalk-ExpandMemory 到最新版本");
+                        return result;
+                    }
+                }
+                
+                Log.Message("[RimTalk-ExpandActions] ? 找到 ImportFromExternalMod 静态方法");
+                Log.Message($"[RimTalk-ExpandActions] 方法签名: {importMethod}");
+                
+                // 4. 准备规则内容
+                string knowledgeContent = GetKnowledgeContent();
+                result.TotalRules = 8; // 8 种行为
+                
+                Log.Message("[RimTalk-ExpandActions] 准备注入 8 种行为规则...");
+                
+                // 5. 调用静态方法（null 作为第一个参数，因为是静态方法）
+                object invokeResult = importMethod.Invoke(null, new object[]
+                {
+                    knowledgeContent,
+                    "RimTalk-ExpandActions",
+                    true // overwriteExisting
+                });
+                
+                // 6. 处理结果
+                if (invokeResult is int count)
+                {
+                    result.InjectedRules = count;
+                    result.Success = count > 0;
+                    
+                    // 添加规则名称列表
+                    var rules = GetRuleDescriptions();
+                    result.InjectedRuleNames = rules.Keys.ToList();
+                    
+                    if (result.Success)
+                    {
+                        Log.Message("[RimTalk-ExpandActions] ━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                        Log.Message($"[RimTalk-ExpandActions] ??? 成功导入 {count} 条规则到当前存档 ???");
+                        Log.Message("[RimTalk-ExpandActions] ━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                        
+                        foreach (var ruleName in result.InjectedRuleNames)
+                        {
+                            Log.Message($"[RimTalk-ExpandActions]   ? {ruleName}: {rules[ruleName]}");
+                        }
+                    }
+                    else
+                    {
+                        result.ErrorMessage = "注入完成，但没有规则被添加（可能已存在）";
+                        Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
                     }
                 }
                 else
                 {
-                    Log.Message($"[RimTalk-ExpandActions]   返回值类型: {result?.GetType().Name ?? "null"}");
-                    Log.Message("[RimTalk-ExpandActions] ? 常识库导入已执行（无返回值）");
+                    result.ErrorMessage = $"注入方法返回了意外的类型: {invokeResult?.GetType().Name ?? "null"}";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
                 }
-                
-                Log.Message("[RimTalk-ExpandActions] ━━━━━ 注入流程完成 ━━━━━");
             }
             catch (Exception ex)
             {
-                Log.Error("[RimTalk-ExpandActions] ━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                Log.Error($"[RimTalk-ExpandActions] ??? InjectKnowledgeToExpandMemory 失败 ???");
-                Log.Error($"[RimTalk-ExpandActions] 异常类型: {ex.GetType().Name}");
-                Log.Error($"[RimTalk-ExpandActions] 错误消息: {ex.Message}");
+                result.ErrorMessage = $"注入失败: {ex.Message}";
+                Log.Error($"[RimTalk-ExpandActions] {result.ErrorMessage}");
                 Log.Error($"[RimTalk-ExpandActions] 堆栈跟踪:\n{ex.StackTrace}");
-                
-                if (ex.InnerException != null)
-                {
-                    Log.Error($"[RimTalk-ExpandActions] 内部异常: {ex.InnerException.Message}");
-                }
-                
-                Log.Error("[RimTalk-ExpandActions] ━━━━━━━━━━━━━━━━━━━━━━━━━━");
-                Log.Warning("[RimTalk-ExpandActions] 常识库注入失败不会影响 Mod 的其他功能");
             }
+            
+            return result;
         }
 
         /// <summary>
-        /// 查找类型（支持多个程序集）
+        /// 检查常识库状态
         /// </summary>
+        public static string CheckStatus()
+        {
+            try
+            {
+                if (Current.Game == null || Find.World == null)
+                {
+                    return "? 未加载游戏存档";
+                }
+                
+                Type commonKnowledgeType = FindType("RimTalk.Memory.CommonKnowledgeLibrary");
+                if (commonKnowledgeType == null)
+                {
+                    return "? 未找到 RimTalk-ExpandMemory";
+                }
+                
+                // 检查静态方法是否存在
+                MethodInfo importMethod = commonKnowledgeType.GetMethod(
+                    "ImportFromExternalMod",
+                    BindingFlags.Public | BindingFlags.Static
+                );
+                
+                if (importMethod == null)
+                {
+                    return "? ImportFromExternalMod 方法不可用";
+                }
+                
+                return "? RimTalk-ExpandMemory 已就绪";
+            }
+            catch (Exception ex)
+            {
+                return $"? 检查失败: {ex.Message}";
+            }
+        }
+
+        #region 辅助方法
+
         private static Type FindType(string fullTypeName)
         {
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
@@ -233,13 +235,33 @@ namespace RimTalkExpandActions.Memory.Utils
             return null;
         }
 
-        /// <summary>
-        /// 手动重新注入常识库（用于调试或更新规则）
-        /// </summary>
-        public static void ManualReInject()
+        private static string GetKnowledgeContent()
         {
-            Log.Message("[RimTalk-ExpandActions] 手动重新注入常识库...");
-            InjectKnowledgeToExpandMemory();
+            // 使用 BehaviorRuleContents 中定义的规则内容
+            var allRules = BehaviorRuleContents.GetAllRules();
+            
+            var lines = new List<string>
+            {
+                "// ━━━━━ RimTalk-ExpandActions 行为规则 ━━━━━",
+                "// 这些规则定义了 AI 可以触发的游戏行为",
+                "// 格式：[标签|重要性]内容",
+                "// 重要性范围：0.0 到 1.0（越高越优先）",
+                ""
+            };
+            
+            foreach (var ruleKvp in allRules)
+            {
+                var rule = ruleKvp.Value;
+                var formattedContent = $"[{rule.Tag}|{rule.Importance:F1}]{rule.Content}";
+                lines.Add(formattedContent);
+                lines.Add("");
+            }
+            
+            lines.Add("// ━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            
+            return string.Join("\n", lines);
         }
+
+        #endregion
     }
 }
