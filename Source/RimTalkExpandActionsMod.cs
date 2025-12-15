@@ -32,17 +32,7 @@ namespace RimTalkExpandActions
                 Log.Error($"[RimTalk-ExpandActions] Harmony 补丁失败: {ex.Message}\n{ex.StackTrace}");
             }
             
-            // 验证 RimTalk-ExpandMemory API
-            try
-            {
-                Memory.Utils.ExpandMemoryAPIValidator.ValidateImportFromTextAPI();
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"[RimTalk-ExpandActions] API 验证失败: {ex.Message}\n{ex.StackTrace}");
-            }
-            
-            Log.Message("[RimTalk-ExpandActions] Mod 已加载");
+            Log.Message("[RimTalk-ExpandActions] Mod 已加载 - 请在加载存档后通过 Mod 设置手动注入规则");
         }
 
         public override string SettingsCategory()
