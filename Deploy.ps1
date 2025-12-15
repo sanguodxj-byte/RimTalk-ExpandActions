@@ -101,7 +101,7 @@ Write-Host "  - Ä¿±êÂ·¾¶: $TargetPath" -ForegroundColor White
 $keyFiles = @(
     "About\About.xml",
     "LoadFolders.xml",
-    "1.6\Assemblies\RimTalkExpandActions.dll",
+    "1.6\Assemblies\RimTalk-ExpandActions.dll",
     "Defs\JobDefs\Jobs_SocialDining.xml",
     "Defs\InteractionDefs\Interaction_OfferFood.xml",
     "Defs\ThoughtDefs\Thoughts_SocialDining.xml"

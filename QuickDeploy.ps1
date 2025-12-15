@@ -23,8 +23,8 @@ if ($process) {
 # 2. 复制 DLL
 Write-Host ""
 Write-Host "2. 复制 DLL..." -ForegroundColor Yellow
-$source = ".\Bin\Debug\RimTalkExpandActions.dll"
-$dest = Join-Path $RimWorldPath "Mods\RimTalk-ExpandActions\1.6\Assemblies\RimTalkExpandActions.dll"
+$source = ".\Bin\Debug\RimTalk-ExpandActions.dll"
+$dest = Join-Path $RimWorldPath "Mods\RimTalk-ExpandActions\1.6\Assemblies\RimTalk-ExpandActions.dll"
 
 if (!(Test-Path $source)) {
     Write-Host "   ? 源文件不存在: $source" -ForegroundColor Red

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <LangVersion>7.3</LangVersion>
-    <AssemblyName>RimTalkExpandActions</AssemblyName>
+    <AssemblyName>RimTalk-ExpandActions</AssemblyName>
     <RootNamespace>RimTalkExpandActions</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <OutputPath>Bin\$(Configuration)\</OutputPath>
