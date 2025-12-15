@@ -87,7 +87,7 @@ v1.0.0 (初始版本)
             <steamWorkshopUrl>steam://url/CommunityFilePage/0</steamWorkshopUrl>
         </li>
         <li>
-            <packageId>sanguo.rimtalk.expandmemory</packageId>
+            <packageId>cj.rimtalk.expandmemory</packageId>
             <displayName>RimTalk-ExpandMemory</displayName>
             <steamWorkshopUrl>steam://url/CommunityFilePage/0</steamWorkshopUrl>
         </li>
@@ -97,6 +97,6 @@ v1.0.0 (初始版本)
         <li>Ludeon.RimWorld.Royalty</li>
         <li>brrainz.harmony</li>
         <li>sanguodxj.rimtalk</li>
-        <li>sanguo.rimtalk.expandmemory</li>
+        <li>cj.rimtalk.expandmemory</li>
     </loadAfter>
 </ModMetaData>
