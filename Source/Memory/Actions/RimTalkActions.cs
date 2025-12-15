@@ -908,6 +908,67 @@ namespace RimTalkExpandActions.Memory.Actions
             }
         }
 
+        /// <summary>
+        /// 执行简单的"一起吃饭"动作（使用原版 Ingest 任务）
+        /// 让两个小人立即开始吃饭，不使用自定义 JobDriver
+        /// </summary>
+        /// <param name="initiator">发起者</param>
+        /// <param name="targetName">目标名字</param>
+        public static void ExecuteSimpleEatTogether(Pawn initiator, string targetName)
+        {
+            try
+            {
+                // 1. 参数验证
+                if (initiator == null)
+                {
+                    Log.Error("[RimTalk-ExpandActions] ExecuteSimpleEatTogether: initiator 为 null");
+                    return;
+                }
+
+                // 2. 查找目标 Pawn
+                Pawn target = FindPawnByNameInternal(targetName);
+                if (target == null)
+                {
+                    Log.Warning($"[RimTalk-ExpandActions] ExecuteSimpleEatTogether: 未找到名为 '{targetName}' 的小人");
+                    Messages.Message($"找不到 {targetName}，无法一起吃饭。", MessageTypeDefOf.RejectInput);
+                    return;
+                }
+
+                // 3. 查找并触发交互
+                InteractionDef eatTogetherDef = DefDatabase<InteractionDef>.GetNamedSilentFail("LetsTalkEatTogether");
+                if (eatTogetherDef == null)
+                {
+                    Log.Error("[RimTalk-ExpandActions] ExecuteSimpleEatTogether: 未找到 LetsTalkEatTogether 交互定义");
+                    return;
+                }
+
+                // 4. 触发交互（InteractionWorker 会处理所有逻辑）
+                InteractionWorker worker = eatTogetherDef.Worker;
+                if (worker != null)
+                {
+                    worker.Interacted(
+                        initiator, 
+                        target, 
+                        null, 
+                        out string letterText, 
+                        out string letterLabel, 
+                        out LetterDef letterDef, 
+                        out LookTargets lookTargets
+                    );
+
+                    Log.Message($"[RimTalk-ExpandActions] {initiator.LabelShort} 邀请 {target.LabelShort} 一起吃饭 (简单模式)");
+                }
+                else
+                {
+                    Log.Error("[RimTalk-ExpandActions] ExecuteSimpleEatTogether: InteractionWorker 为 null");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[RimTalk-ExpandActions] ExecuteSimpleEatTogether 执行失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
         #endregion
     }
 }

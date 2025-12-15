@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+  <!-- 
+    Simple "Let's Eat Together" Interaction
+    Uses vanilla Ingest jobs only - no custom JobDrivers
+    Both pawns immediately start eating when triggered
+  -->
+  <InteractionDef>
+    <defName>LetsTalkEatTogether</defName>
+    <label>let's eat together</label>
+    <labelMale>suggest eating together</labelMale>
+    <labelFemale>suggest eating together</labelFemale>
+    
+    <!-- Log entry when interaction triggers -->
+    <logRulesInitiator>
+      <rulesStrings>
+        <li>logentry(p=0.1)->[initiator_nameShortIndef] suggested eating together with [recipient_nameShortDef].</li>
+        <li>logentry(p=0.1)->[initiator_nameShortIndef] asked [recipient_nameShortDef] to share a meal.</li>
+        <li>logentry(p=0.1)->[initiator_nameShortIndef] invited [recipient_nameShortDef] to eat.</li>
+      </rulesStrings>
+    </logRulesInitiator>
+    
+    <!-- Symbol for the log -->
+    <symbol>things/mote/speech</symbol>
+    
+    <!-- Interaction worker class -->
+    <workerClass>RimTalkExpandActions.SocialDining.InteractionWorker_LetsTalkEatTogether</workerClass>
+    
+    <!-- Social fight chance (0 = no fighting) -->
+    <socialFightBaseChance>0</socialFightBaseChance>
+    
+    <!-- Ignore if colonist is already busy -->
+    <ignoreSeenMemoryIfOtherPawnBusy>true</ignoreSeenMemoryIfOtherPawnBusy>
+  </InteractionDef>
+</Defs>
