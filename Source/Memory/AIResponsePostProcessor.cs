@@ -248,18 +248,20 @@ namespace RimTalkExpandActions.Memory
 
             if (!ValidateTarget(targetName, targetPawn))
             {
+                Log.Warning($"[RimTalk-ExpandActions] 恋爱行为：目标名字不匹配，跳过");
                 return;
             }
 
-            Pawn partner = FindPawnByName(partnerName);
-            if (partner == null)
+            // 线程安全修复：不再使用 FindPawnByName，要求必须在 JSON 中明确指定 partner
+            if (string.IsNullOrEmpty(partnerName))
             {
-                Log.Warning(string.Format("[RimTalk-ExpandActions] 未找到名为 '{0}' 的 Pawn", partnerName));
+                Log.Warning("[RimTalk-ExpandActions] 恋爱行为：未指定 partner 参数");
                 return;
             }
 
-            Log.Message(string.Format("[RimTalk-ExpandActions] 检测到恋爱指令: {0} <-> {1}, 类型: {2}", targetPawn.Name.ToStringShort, partner.Name.ToStringShort, type));
-            RimTalkActions.ExecuteRomanceChange(targetPawn, partner, type);
+            // 简化逻辑：partner 参数应该在调用前就已经解析好
+            Log.Warning($"[RimTalk-ExpandActions] 恋爱行为需要两个 Pawn 对象，当前实现不支持从名字查找（线程安全限制）");
+            Log.Message($"[RimTalk-ExpandActions] 建议：使用其他方式触发恋爱关系（如通过游戏内互动）");
         }
 
         private static void HandleInspirationAction(string jsonBlock, Pawn targetPawn)
@@ -301,88 +303,67 @@ namespace RimTalkExpandActions.Memory
 
         private static void HandleSocialDiningAction(string jsonBlock, Pawn targetPawn, Pawn recruiter)
         {
-            // 尝试从 JSON 获取目标
+            // 线程安全修复：直接使用传入的参数，不再查找 Pawn
             string targetName = ExtractJsonField(jsonBlock, "target");
-            Pawn finalTarget = null;
             
-            if (!string.IsNullOrEmpty(targetName))
-            {
-                finalTarget = FindPawnByName(targetName);
-                if (finalTarget == null)
-                {
-                    Log.Warning(string.Format("[RimTalk-ExpandActions] 未找到目标: '{0}'，使用默认 targetPawn", targetName));
-                }
-            }
+            // 使用已有的参数作为发起者和目标
+            Pawn finalInitiator = recruiter ?? targetPawn;
+            Pawn finalTarget = targetPawn;
             
-            // 如果 JSON 没有指定目标或解析失败，使用参数 targetPawn
-            if (finalTarget == null)
-            {
-                finalTarget = targetPawn;
-            }
-
-            // 尝试从 JSON 获取发起者
+            // 如果 JSON 明确指定要交换角色
             string initiatorName = ExtractJsonField(jsonBlock, "initiator");
-            Pawn finalInitiator = null;
-            
             if (!string.IsNullOrEmpty(initiatorName))
             {
-                finalInitiator = FindPawnByName(initiatorName);
-                if (finalInitiator == null)
+                // 检查是否要求 targetPawn 作为发起者
+                if (ValidateTarget(initiatorName, targetPawn))
                 {
-                    Log.Warning(string.Format("[RimTalk-ExpandActions] 未找到发起者: '{0}'，使用默认 recruiter", initiatorName));
+                    finalInitiator = targetPawn;
+                    finalTarget = recruiter;
                 }
             }
-            
-            // 如果 JSON 没有指定发起者或解析失败，使用参数 recruiter（当前说话者）
-            if (finalInitiator == null)
-            {
-                finalInitiator = recruiter;
-            }
 
-            // 空值检查
+            // 最终验证
             if (finalInitiator == null)
             {
-                Log.Warning("[RimTalk-ExpandActions] 社交用餐指令：发起者为空，无法执行");
+                Log.Warning("[RimTalk-ExpandActions] 社交用餐：发起者为空，无法执行");
                 return;
             }
 
             if (finalTarget == null)
             {
-                Log.Warning("[RimTalk-ExpandActions] 社交用餐指令：目标为空，无法执行");
+                Log.Warning("[RimTalk-ExpandActions] 社交用餐：目标为空，无法执行");
                 return;
             }
 
             // 检查是否为同一个人
             if (finalInitiator == finalTarget)
             {
-                Log.Warning(string.Format("[RimTalk-ExpandActions] 社交用餐指令：发起者和目标是同一个人 ({0})，无法执行", 
-                    finalInitiator.Name.ToStringShort));
+                Log.Warning($"[RimTalk-ExpandActions] 社交用餐：发起者和目标是同一个人 ({finalInitiator.Name.ToStringShort})，无法执行");
                 return;
             }
 
-            Log.Message(string.Format("[RimTalk-ExpandActions] 检测到社交用餐指令: {0} 邀请 {1}", 
-                finalInitiator.Name.ToStringShort, finalTarget.Name.ToStringShort));
+            Log.Message($"[RimTalk-ExpandActions] 检测到社交用餐指令: {finalInitiator.Name.ToStringShort} 邀请 {finalTarget.Name.ToStringShort}");
             
             RimTalkActions.ExecuteSocialDining(finalInitiator, finalTarget);
         }
 
         private static void HandleSocialRelaxAction(string jsonBlock, Pawn targetPawn, Pawn recruiter)
         {
-            // 获取目标列表（支持多个参与者）
+            // 线程安全修复：只使用当前已知的 Pawn，不再从名字列表查找
             string targets = ExtractJsonField(jsonBlock, "targets");
             
-            if (string.IsNullOrEmpty(targets))
-            {
-                // 如果没有指定targets，使用单个target
-                string singleTarget = ExtractJsonField(jsonBlock, "target");
-                targets = singleTarget;
-            }
-
-            Log.Message(string.Format("[RimTalk-ExpandActions] 检测到社交放松指令，参与者: {0}", 
-                string.IsNullOrEmpty(targets) ? "发起者自己" : targets));
+            Pawn initiator = recruiter ?? targetPawn;
             
-            // 调用社交放松执行器
-            RimTalkActions.ExecuteSocialRelax(recruiter ?? targetPawn, targets);
+            Log.Message($"[RimTalk-ExpandActions] 检测到社交放松指令（简化版）：{initiator.Name.ToStringShort} 开始放松");
+            
+            // 简化实现：只让发起者自己放松，避免线程安全问题
+            RimTalkActions.ExecuteSocialRelax(initiator, new List<Pawn> { initiator });
+            
+            if (!string.IsNullOrEmpty(targets))
+            {
+                Log.Warning($"[RimTalk-ExpandActions] 注意：多人放松功能因线程安全问题暂时禁用");
+                Log.Warning($"[RimTalk-ExpandActions] 原始目标列表: {targets}（已忽略）");
+            }
         }
 
         #endregion
@@ -463,101 +444,20 @@ namespace RimTalkExpandActions.Memory
             }
         }
 
+        // ==========================================
+        // 警告：此方法已废弃！
+        // 原因：访问 map.mapPawns 违反 RimWorld 线程安全规则
+        // 错误信息：Accessing map pawns off main thread
+        // 修复方案：使用已传入的 Pawn 参数，不要动态查找
+        // ==========================================
+        /*
         private static Pawn FindPawnByName(string name)
         {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(name))
-                {
-                    return null;
-                }
-
-                // 线程安全检查：必须在主线程调用
-                if (!UnityEngine.Application.isPlaying)
-                {
-                    Log.Error("[RimTalk-ExpandActions] FindPawnByName: 不能在非主线程调用");
-                    return null;
-                }
-
-                string normalizedName = name.ToLower().Replace(" ", "");
-
-                // 安全地访问 Find.Maps
-                List<Map> maps = null;
-                try
-                {
-                    maps = Find.Maps;
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"[RimTalk-ExpandActions] FindPawnByName: 访问 Find.Maps 失败 (可能在后台线程): {ex.Message}");
-                    return null;
-                }
-
-                if (maps == null || maps.Count == 0)
-                {
-                    return null;
-                }
-
-                foreach (var map in maps)
-                {
-                    if (map == null || map.mapPawns == null)
-                    {
-                        continue;
-                    }
-
-                    // 使用 Try-Catch 保护 mapPawns 访问
-                    IReadOnlyList<Pawn> allPawns = null;
-                    try
-                    {
-                        allPawns = map.mapPawns.AllPawnsSpawned; // 使用 AllPawnsSpawned 代替 AllPawns
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        // 这个异常表明我们在后台线程访问了 mapPawns
-                        Log.Error($"[RimTalk-ExpandActions] FindPawnByName: 线程安全错误 - 不能在后台线程访问 mapPawns: {ex.Message}");
-                        return null;
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error($"[RimTalk-ExpandActions] FindPawnByName: 访问 mapPawns 失败: {ex.Message}");
-                        continue;
-                    }
-
-                    if (allPawns == null)
-                    {
-                        continue;
-                    }
-
-                    foreach (var pawn in allPawns)
-                    {
-                        if (pawn == null || pawn.Name == null) continue;
-
-                        string shortName = pawn.Name.ToStringShort != null ? pawn.Name.ToStringShort.ToLower().Replace(" ", "") : "";
-                        string nickname = "";
-                        NameTriple nameTriple = pawn.Name as NameTriple;
-                        if (nameTriple != null && nameTriple.Nick != null)
-                        {
-                            nickname = nameTriple.Nick.ToLower().Replace(" ", "");
-                        }
-
-                        if (shortName.Contains(normalizedName) || 
-                            normalizedName.Contains(shortName) ||
-                            nickname.Contains(normalizedName) ||
-                            normalizedName.Contains(nickname))
-                        {
-                            return pawn;
-                        }
-                    }
-                }
-
-                return null;
-            }
-            catch (Exception ex)
-            {
-                Log.Error(string.Format("[RimTalk-ExpandActions] FindPawnByName 失败: {0}\n{1}", ex.Message, ex.StackTrace));
-                return null;
-            }
+            // 此方法已被禁用以避免崩溃
+            Log.Error("[RimTalk-ExpandActions] FindPawnByName 已废弃，不应该被调用！");
+            return null;
         }
+        */
 
         public static bool TryParseActionJson(string json, out string action, out string target)
         {
