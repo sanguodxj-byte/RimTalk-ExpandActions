@@ -7,7 +7,7 @@ using Verse;
 namespace RimTalkExpandActions.Patches
 {
     /// <summary>
-    /// 调试补丁：监控 RimTalk-ExpandMemory 的 BuildContext 方法
+    /// 调试补丁：监控 RimTalk 的 BuildContext 方法
     /// 用于验证常识库规则是否正确注入到 AI Prompt 中
     /// </summary>
     [HarmonyPatch]
@@ -16,29 +16,29 @@ namespace RimTalkExpandActions.Patches
         private static bool isPatched = false;
 
         /// <summary>
-        /// 准备阶段：查找 RimTalk-ExpandMemory 的 BuildContext 方法
+        /// 准备阶段：查找 RimTalk 的 PromptService.BuildContext 方法
         /// </summary>
         static bool Prepare()
         {
             try
             {
-                // 查找 RimTalk.Memory.MemoryManager 类型
-                Type memoryManagerType = AccessTools.TypeByName("RimTalk.Memory.MemoryManager");
-                if (memoryManagerType == null)
+                // 查找 RimTalk.Service.PromptService 类型
+                Type promptServiceType = AccessTools.TypeByName("RimTalk.Service.PromptService");
+                if (promptServiceType == null)
                 {
-                    Log.Warning("[RimTalk-ExpandActions] 调试补丁: 未找到 RimTalk.Memory.MemoryManager，跳过 BuildContext 监控");
+                    Log.Warning("[RimTalk-ExpandActions] 调试补丁: 未找到 RimTalk.Service.PromptService，跳过 BuildContext 监控");
                     return false;
                 }
 
-                // 查找 BuildContext 方法
-                MethodInfo buildContextMethod = AccessTools.Method(memoryManagerType, "BuildContext");
+                // 查找 BuildContext 方法 (参数: List<Pawn>)
+                MethodInfo buildContextMethod = AccessTools.Method(promptServiceType, "BuildContext", new Type[] { typeof(List<Pawn>) });
                 if (buildContextMethod == null)
                 {
                     Log.Warning("[RimTalk-ExpandActions] 调试补丁: 未找到 BuildContext 方法");
                     return false;
                 }
 
-                Log.Message("[RimTalk-ExpandActions] 调试补丁: 成功找到 BuildContext 方法，将监控 Prompt 生成");
+                Log.Message("[RimTalk-ExpandActions] 调试补丁: 成功找到 PromptService.BuildContext 方法，将监控 Prompt 生成");
                 isPatched = true;
                 return true;
             }
@@ -54,8 +54,8 @@ namespace RimTalkExpandActions.Patches
         /// </summary>
         static MethodBase TargetMethod()
         {
-            Type memoryManagerType = AccessTools.TypeByName("RimTalk.Memory.MemoryManager");
-            return AccessTools.Method(memoryManagerType, "BuildContext");
+            Type promptServiceType = AccessTools.TypeByName("RimTalk.Service.PromptService");
+            return AccessTools.Method(promptServiceType, "BuildContext", new Type[] { typeof(List<Pawn>) });
         }
 
         /// <summary>

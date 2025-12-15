@@ -14,12 +14,7 @@ namespace RimTalkExpandActions.Patches
     public static class RimTalkBridge
     {
         private static Type rimTalkServiceType = null;
-        private static Type pawnStateType = null;
-        private static Type talkResponseType = null;
         private static MethodInfo targetMethod = null;
-        private static FieldInfo textField = null;
-        private static FieldInfo speakerField = null;
-        private static FieldInfo listenerField = null;
         private static bool isRimTalkAvailable = false;
 
         /// <summary>
@@ -38,44 +33,13 @@ namespace RimTalkExpandActions.Patches
                     return false;
                 }
 
-                // 查找 PawnState 类型
-                pawnStateType = AccessTools.TypeByName("RimTalk.Data.PawnState");
-                if (pawnStateType == null)
-                {
-                    Log.Error("[RimTalk-ExpandActions] 未找到 RimTalk.Data.PawnState 类型");
-                    return false;
-                }
-
-                // 查找 TalkResponse 类型
-                talkResponseType = AccessTools.TypeByName("RimTalk.Data.TalkResponse");
-                if (talkResponseType == null)
-                {
-                    Log.Error("[RimTalk-ExpandActions] 未找到 RimTalk.Data.TalkResponse 类型");
-                    return false;
-                }
-
-                // 查找 ConsumeTalk 方法
-                targetMethod = AccessTools.Method(rimTalkServiceType, "ConsumeTalk", new Type[] { pawnStateType });
+                // 查找 GetTalk 方法 (public static string GetTalk(Pawn pawn))
+                targetMethod = AccessTools.Method(rimTalkServiceType, "GetTalk", new Type[] { typeof(Pawn) });
                 
                 if (targetMethod == null)
                 {
-                    Log.Error("[RimTalk-ExpandActions] 未找到 ConsumeTalk 方法");
+                    Log.Error("[RimTalk-ExpandActions] 未找到 GetTalk 方法");
                     return false;
-                }
-
-                // 查找 TalkResponse.Text 字段
-                textField = AccessTools.Field(talkResponseType, "Text");
-                if (textField == null)
-                {
-                    // 尝试其他可能的字段名
-                    textField = AccessTools.Field(talkResponseType, "text");
-                }
-
-                // 查找 PawnState 中的 Pawn 字段
-                speakerField = AccessTools.Field(pawnStateType, "Pawn");
-                if (speakerField == null)
-                {
-                    speakerField = AccessTools.Field(pawnStateType, "pawn");
                 }
 
                 isRimTalkAvailable = true;
@@ -98,51 +62,34 @@ namespace RimTalkExpandActions.Patches
         }
 
         /// <summary>
-        /// 后置补丁：处理返回的 TalkResponse
+        /// 后置补丁：处理返回的对话文本
+        /// GetTalk 方法签名: public static string GetTalk(Pawn pawn)
         /// </summary>
-        static void Postfix(object pawnState, ref object __result)
+        static void Postfix(Pawn pawn, ref string __result)
         {
             try
             {
-                if (__result == null || pawnState == null)
-                {
-                    return;
-                }
-
-                // 获取说话者
-                Pawn speaker = speakerField?.GetValue(pawnState) as Pawn;
-                if (speaker == null)
-                {
-                    return;
-                }
-
-                // 获取文本
-                string text = textField?.GetValue(__result) as string;
-                if (string.IsNullOrEmpty(text))
+                if (string.IsNullOrEmpty(__result) || pawn == null)
                 {
                     return;
                 }
 
                 // 检查是否包含 JSON 指令
-                if (!text.Contains("{\"action\"") && !text.Contains("{ \"action\""))
+                if (!__result.Contains("{\"action\"") && !__result.Contains("{ \"action\""))
                 {
                     return;
                 }
 
-                // 处理 AI 回复 - 注意：在这种情况下，listener 可能是 null
-                // 我们使用 speaker 作为 targetPawn（对话目标）
-                string cleanText = AIResponsePostProcessor.ProcessActionResponse(text, speaker, null);
+                // 处理 AI 回复 - pawn 是说话者（对话目标）
+                string cleanText = AIResponsePostProcessor.ProcessActionResponse(__result, pawn, null);
 
-                // 更新 TalkResponse 的文本
-                if (textField != null)
-                {
-                    textField.SetValue(__result, cleanText);
-                }
+                // 更新返回值
+                __result = cleanText;
 
                 if (RimTalkExpandActionsMod.Settings?.enableDetailedLogging == true)
                 {
-                    Log.Message($"[RimTalk-ExpandActions] 对话已处理: {speaker.Name.ToStringShort}");
-                    Log.Message($"[RimTalk-ExpandActions] 原始: {text}");
+                    Log.Message($"[RimTalk-ExpandActions] 对话已处理: {pawn.Name.ToStringShort}");
+                    Log.Message($"[RimTalk-ExpandActions] 原始: {__result}");
                     Log.Message($"[RimTalk-ExpandActions] 清理: {cleanText}");
                 }
             }
