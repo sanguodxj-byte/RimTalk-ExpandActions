@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using RimWorld;
@@ -50,11 +51,32 @@ namespace RimTalkExpandActions.Memory
 
                     if (!string.IsNullOrEmpty(action))
                     {
-                        // 3. 根据动作类型分发到对应处理器
-                        DispatchAction(action, jsonBlock, targetPawn, recruiter);
+                        // 3. 捕获变量（避免闭包问题）
+                        string capturedAction = action;
+                        string capturedJsonBlock = jsonBlock;
+                        Pawn capturedTarget = targetPawn;
+                        Pawn capturedRecruiter = recruiter;
+
+                        // 4. 延迟到主线程执行（线程安全）
+                        if (RimTalkExpandActionsMod.Settings?.enableDetailedLogging == true)
+                        {
+                            Log.Message($"[RimTalk-ExpandActions] 检测到动作 '{action}'，将在主线程执行");
+                        }
+
+                        LongEventHandler.ExecuteWhenFinished(() =>
+                        {
+                            try
+                            {
+                                DispatchAction(capturedAction, capturedJsonBlock, capturedTarget, capturedRecruiter);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Error($"[RimTalk-ExpandActions] 主线程执行失败: {ex.Message}\n{ex.StackTrace}");
+                            }
+                        });
                     }
 
-                    // 4. 移除 JSON 字符串，返回纯净文本
+                    // 5. 立即移除 JSON 字符串，返回纯净文本
                     string cleanText = responseText.Replace(jsonBlock, "").Trim();
                     return cleanText;
                 }
@@ -450,11 +472,63 @@ namespace RimTalkExpandActions.Memory
                     return null;
                 }
 
+                // 线程安全检查：必须在主线程调用
+                if (!UnityEngine.Application.isPlaying)
+                {
+                    Log.Error("[RimTalk-ExpandActions] FindPawnByName: 不能在非主线程调用");
+                    return null;
+                }
+
                 string normalizedName = name.ToLower().Replace(" ", "");
 
-                foreach (var map in Find.Maps)
+                // 安全地访问 Find.Maps
+                List<Map> maps = null;
+                try
                 {
-                    foreach (var pawn in map.mapPawns.AllPawns)
+                    maps = Find.Maps;
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[RimTalk-ExpandActions] FindPawnByName: 访问 Find.Maps 失败 (可能在后台线程): {ex.Message}");
+                    return null;
+                }
+
+                if (maps == null || maps.Count == 0)
+                {
+                    return null;
+                }
+
+                foreach (var map in maps)
+                {
+                    if (map == null || map.mapPawns == null)
+                    {
+                        continue;
+                    }
+
+                    // 使用 Try-Catch 保护 mapPawns 访问
+                    IReadOnlyList<Pawn> allPawns = null;
+                    try
+                    {
+                        allPawns = map.mapPawns.AllPawnsSpawned; // 使用 AllPawnsSpawned 代替 AllPawns
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        // 这个异常表明我们在后台线程访问了 mapPawns
+                        Log.Error($"[RimTalk-ExpandActions] FindPawnByName: 线程安全错误 - 不能在后台线程访问 mapPawns: {ex.Message}");
+                        return null;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"[RimTalk-ExpandActions] FindPawnByName: 访问 mapPawns 失败: {ex.Message}");
+                        continue;
+                    }
+
+                    if (allPawns == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var pawn in allPawns)
                     {
                         if (pawn == null || pawn.Name == null) continue;
 
@@ -480,7 +554,7 @@ namespace RimTalkExpandActions.Memory
             }
             catch (Exception ex)
             {
-                Log.Error(string.Format("[RimTalk-ExpandActions] FindPawnByName 失败: {0}", ex.Message));
+                Log.Error(string.Format("[RimTalk-ExpandActions] FindPawnByName 失败: {0}\n{1}", ex.Message, ex.StackTrace));
                 return null;
             }
         }

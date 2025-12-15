@@ -240,25 +240,18 @@ namespace RimTalkExpandActions.Memory.Utils
             // 使用 BehaviorRuleContents 中定义的规则内容
             var allRules = BehaviorRuleContents.GetAllRules();
             
-            var lines = new List<string>
-            {
-                "// ━━━━━ RimTalk-ExpandActions 行为规则 ━━━━━",
-                "// 这些规则定义了 AI 可以触发的游戏行为",
-                "// 格式：[标签|重要性]内容",
-                "// 重要性范围：0.0 到 1.0（越高越优先）",
-                ""
-            };
+            var lines = new List<string>();
             
+            // 只输出规则，不添加注释或空行
             foreach (var ruleKvp in allRules)
             {
                 var rule = ruleKvp.Value;
+                // 格式：[标签|重要性]内容
                 var formattedContent = $"[{rule.Tag}|{rule.Importance:F1}]{rule.Content}";
                 lines.Add(formattedContent);
-                lines.Add("");
             }
             
-            lines.Add("// ━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            
+            // 用换行符连接，每条规则占一行
             return string.Join("\n", lines);
         }
 

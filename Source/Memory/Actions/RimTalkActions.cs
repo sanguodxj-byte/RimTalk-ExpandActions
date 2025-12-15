@@ -816,6 +816,7 @@ namespace RimTalkExpandActions.Memory.Actions
 
         /// <summary>
         /// 根据名称查找 Pawn（内部方法）
+        /// 注意：此方法必须在主线程调用！
         /// </summary>
         private static Pawn FindPawnByNameInternal(string name)
         {
@@ -826,11 +827,57 @@ namespace RimTalkExpandActions.Memory.Actions
                     return null;
                 }
 
+                // 线程安全检查
+                if (!UnityEngine.Application.isPlaying)
+                {
+                    Log.Error("[RimTalk-ExpandActions] FindPawnByNameInternal: 不能在非主线程调用");
+                    return null;
+                }
+
                 string normalizedName = name.ToLower().Replace(" ", "");
 
-                foreach (var map in Find.Maps)
+                // 安全地访问 Find.Maps（只在主线程）
+                List<Map> maps = null;
+                try
                 {
-                    foreach (var pawn in map.mapPawns.AllPawns)
+                    maps = Find.Maps;
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[RimTalk-ExpandActions] FindPawnByNameInternal: 访问 Find.Maps 失败 (可能在后台线程): {ex.Message}");
+                    return null;
+                }
+
+                if (maps == null || maps.Count == 0)
+                {
+                    return null;
+                }
+
+                foreach (var map in maps)
+                {
+                    if (map == null || map.mapPawns == null)
+                    {
+                        continue;
+                    }
+
+                    // 使用 Try-Catch 保护 mapPawns 访问
+                    IReadOnlyList<Pawn> allPawns = null;
+                    try
+                    {
+                        allPawns = map.mapPawns.AllPawnsSpawned; // 使用 AllPawnsSpawned 更安全
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"[RimTalk-ExpandActions] 访问 map.mapPawns 失败: {ex.Message}");
+                        continue;
+                    }
+
+                    if (allPawns == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var pawn in allPawns)
                     {
                         if (pawn == null || pawn.Name == null) continue;
 
@@ -856,7 +903,7 @@ namespace RimTalkExpandActions.Memory.Actions
             }
             catch (Exception ex)
             {
-                Log.Error($"[RimTalk-ExpandActions] FindPawnByNameInternal 失败: {ex.Message}");
+                Log.Error($"[RimTalk-ExpandActions] FindPawnByNameInternal 失败: {ex.Message}\n{ex.StackTrace}");
                 return null;
             }
         }
