@@ -44,20 +44,133 @@ namespace RimTalkExpandActions
                 Listing_Standard listingStandard = new Listing_Standard();
                 listingStandard.Begin(inRect);
                 
-                // RimWorld 1.6: Label 只接受一个 string 参数
+                // === 标题 ===
+                Text.Font = GameFont.Medium;
                 listingStandard.Label("RimTalk-ExpandActions v1.1.0");
+                Text.Font = GameFont.Small;
                 listingStandard.Gap();
-                listingStandard.Label("7种行为系统已启用（招募/投降/恋爱/灵感/休息/赠送/用餐）");
-                listingStandard.Label("所有行为默认100%成功率");
-                listingStandard.Label("自动注入规则功能已启用");
+                
+                // === 全局设置 ===
+                listingStandard.Label("━━━━━ 全局设置 ━━━━━");
+                listingStandard.Gap(6f);
+                
+                listingStandard.CheckboxLabeled("自动注入规则到常识库", ref Settings.autoInjectRules, 
+                    "启动游戏时自动将所有行为规则注入到 RimTalk-ExpandMemory 的常识库");
+                
+                listingStandard.CheckboxLabeled("显示行为触发消息", ref Settings.showActionMessages,
+                    "在游戏中显示行为触发的提示消息");
+                
+                listingStandard.CheckboxLabeled("启用详细日志", ref Settings.enableDetailedLogging,
+                    "在日志中记录详细的执行过程（用于调试）");
+                
                 listingStandard.Gap();
-                listingStandard.Label("详细设置请编辑配置文件或通过代码调用。");
+                listingStandard.Label($"规则重要性: {Settings.ruleImportance:F1}");
+                Settings.ruleImportance = listingStandard.Slider(Settings.ruleImportance, 0f, 2f);
+                
+                listingStandard.Gap();
+                
+                // === 行为开关 ===
+                listingStandard.Label("━━━━━ 行为开关 ━━━━━");
+                listingStandard.Gap(6f);
+                
+                listingStandard.CheckboxLabeled("? 招募系统", ref Settings.enableRecruit,
+                    "通过对话招募 NPC 到殖民地");
+                
+                listingStandard.CheckboxLabeled("? 社交用餐", ref Settings.enableSocialDining,
+                    "邀请他人共进晚餐，增进关系");
+                
+                listingStandard.CheckboxLabeled("? 投降/丢武器", ref Settings.enableDropWeapon,
+                    "让敌人放下武器投降");
+                
+                listingStandard.CheckboxLabeled("? 恋爱关系", ref Settings.enableRomance,
+                    "建立或结束恋人关系");
+                
+                listingStandard.CheckboxLabeled("? 灵感触发", ref Settings.enableInspiration,
+                    "给予角色工作/战斗/交易灵感");
+                
+                listingStandard.CheckboxLabeled("? 强制休息", ref Settings.enableRest,
+                    "让角色去休息或陷入昏迷");
+                
+                listingStandard.CheckboxLabeled("? 赠送物品", ref Settings.enableGift,
+                    "从背包中赠送物品给他人");
+                
+                listingStandard.Gap();
+                
+                // === 成功率设置 ===
+                listingStandard.Label("━━━━━ 成功率设置 ━━━━━");
+                listingStandard.Gap(6f);
+                
+                listingStandard.Label($"招募成功率: {Settings.recruitSuccessChance:P0}");
+                Settings.recruitSuccessChance = listingStandard.Slider(Settings.recruitSuccessChance, 0f, 1f);
+                
+                listingStandard.Label($"社交用餐成功率: {Settings.socialDiningSuccessChance:P0}");
+                Settings.socialDiningSuccessChance = listingStandard.Slider(Settings.socialDiningSuccessChance, 0f, 1f);
+                
+                listingStandard.Label($"投降成功率: {Settings.dropWeaponSuccessChance:P0}");
+                Settings.dropWeaponSuccessChance = listingStandard.Slider(Settings.dropWeaponSuccessChance, 0f, 1f);
+                
+                listingStandard.Label($"恋爱成功率: {Settings.romanceSuccessChance:P0}");
+                Settings.romanceSuccessChance = listingStandard.Slider(Settings.romanceSuccessChance, 0f, 1f);
+                
+                listingStandard.Label($"灵感成功率: {Settings.inspirationSuccessChance:P0}");
+                Settings.inspirationSuccessChance = listingStandard.Slider(Settings.inspirationSuccessChance, 0f, 1f);
+                
+                listingStandard.Label($"休息成功率: {Settings.restSuccessChance:P0}");
+                Settings.restSuccessChance = listingStandard.Slider(Settings.restSuccessChance, 0f, 1f);
+                
+                listingStandard.Label($"赠送成功率: {Settings.giftSuccessChance:P0}");
+                Settings.giftSuccessChance = listingStandard.Slider(Settings.giftSuccessChance, 0f, 1f);
+                
+                listingStandard.Gap();
+                
+                // === 操作按钮 ===
+                listingStandard.Label("━━━━━ 操作 ━━━━━");
+                listingStandard.Gap(6f);
+                
+                if (listingStandard.ButtonText("重置为默认值"))
+                {
+                    Settings.ResetToDefault();
+                    Messages.Message("设置已重置为默认值", MessageTypeDefOf.NeutralEvent);
+                }
+                
+                if (listingStandard.ButtonText("手动注入规则到常识库"))
+                {
+                    // 调用注入器
+                    try
+                    {
+                        var allRules = Memory.Utils.BehaviorRuleContents.GetAllRules();
+                        int successCount = 0;
+                        
+                        foreach (var ruleKvp in allRules)
+                        {
+                            bool success = Memory.Utils.CrossModRecruitRuleInjector.TryInjectRule(
+                                ruleKvp.Value.Id,
+                                ruleKvp.Value.Tag,
+                                ruleKvp.Value.Content,
+                                ruleKvp.Value.Keywords,
+                                ruleKvp.Value.Importance
+                            );
+                            
+                            if (success) successCount++;
+                        }
+                        
+                        Messages.Message($"成功注入 {successCount} 条规则", MessageTypeDefOf.PositiveEvent);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"[RimTalk-ExpandActions] 手动注入失败: {ex.Message}");
+                        Messages.Message("注入失败，请查看日志", MessageTypeDefOf.RejectInput);
+                    }
+                }
+                
+                listingStandard.Gap();
+                listingStandard.Label("提示：修改设置后会自动保存");
                 
                 listingStandard.End();
             }
             catch (Exception ex)
             {
-                Log.Error(string.Format("[RimTalk-ExpandActions] 设置界面错误: {0}\n{1}", ex.Message, ex.StackTrace));
+                Log.Error($"[RimTalk-ExpandActions] 设置界面错误: {ex.Message}\n{ex.StackTrace}");
             }
         }
         
