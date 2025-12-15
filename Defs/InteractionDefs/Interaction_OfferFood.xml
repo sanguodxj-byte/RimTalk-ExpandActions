@@ -17,8 +17,5 @@
         <li>logentry(p=0.1)->[initiator_nameShortIndef] offered food to [recipient_nameShortDef].</li>
       </rulesStrings>
     </logRulesInitiator>
-    
-    <!-- Symbol for the log -->
-    <symbol>things/mote/speech</symbol>
   </InteractionDef>
 </Defs>

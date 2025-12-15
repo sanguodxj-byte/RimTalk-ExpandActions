@@ -18,16 +18,10 @@
       </rulesStrings>
     </logRulesInitiator>
     
-    <!-- Symbol for the log -->
-    <symbol>things/mote/speech</symbol>
-    
     <!-- Interaction worker class -->
     <workerClass>RimTalkExpandActions.SocialDining.InteractionWorker_LetsTalkEatTogether</workerClass>
     
     <!-- Social fight chance (0 = no fighting) -->
     <socialFightBaseChance>0</socialFightBaseChance>
-    
-    <!-- Ignore if colonist is already busy -->
-    <ignoreSeenMemoryIfOtherPawnBusy>true</ignoreSeenMemoryIfOtherPawnBusy>
   </InteractionDef>
 </Defs>
