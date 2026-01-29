@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
@@ -7,12 +8,12 @@ using Verse.AI;
 namespace RimTalkExpandActions.SocialDining
 {
     /// <summary>
-    /// Éç½»ÓÃ²ÍÈÎÎñÇı¶¯
-    /// ºËĞÄĞŞ¸´£º
-    /// 1. ¶àÈËÔ¤ÁôÂß¼­ - ÔÊĞí»ï°éÔ¤ÁôÍ¬Ò»·İÊ³Îï
-    /// 2. ĞŞ¸´ÓÄÁéËø¶¨ Bug - Override EndJobWith Ç¿ÖÆÇåÀí×·×ÙÆ÷
-    /// 3. ĞŞ¸´Ë«±¶ÓªÑø Bug - Toil 7 ²»ÔÙÔö¼ÓÓªÑø
-    /// 4. Í¬²½½øÊ³¶¯»­ - Ë«·½Ãæ¶ÔÃæ³Ô·¹
+    /// ç¤¾äº¤å…±é¤å·¥ä½œé©±åŠ¨
+    /// é€»è¾‘æµç¨‹ï¼š
+    /// 1. æ£€æŸ¥é£Ÿç‰©çŠ¶æ€ï¼Œå†³å®šè°è´Ÿè´£æ¬è¿
+    /// 2. æ¬è¿è€…å»æ‹¿é£Ÿç‰©ï¼Œæ¬åˆ°æ¡Œå­
+    /// 3. éæ¬è¿è€…ç›´æ¥å»æ¡Œå­ç­‰å¾…
+    /// 4. åŒæ–¹ä¸€èµ·è¿›é£Ÿ
     /// </summary>
     public class JobDriver_SocialDine : JobDriver
     {
@@ -24,42 +25,46 @@ namespace RimTalkExpandActions.SocialDining
         private Thing Table => job.targetB.HasThing ? job.targetB.Thing : null;
         private Pawn Partner => (Pawn)job.GetTarget(PartnerInd).Thing;
 
-        // ×·×ÙÆ÷×¢²á×´Ì¬
+        // è¿½è¸ªæ˜¯å¦æ³¨å†Œåˆ° SharedFoodTracker
         private bool isRegisteredWithTracker = false;
 
         /// <summary>
-        /// ¶àÈËÔ¤Áô¼ì²é - ºËĞÄÂß¼­
-        /// Èç¹ûÊ³ÎïÒÑ±»»ï°éÔ¤Áô£¬ÔÊĞí¼ÌĞøÔ¤Áô
+        /// å°è¯•é¢„è®¢èµ„æº
         /// </summary>
         public override bool TryMakePreToilReservations(bool errorOnFailed)
         {
-            // ¼ì²éÊ³ÎïÔ¤Áô
-            if (!pawn.CanReserve(Food, 1, -1, null, false))
+            // 1. å°è¯•é¢„è®¢é£Ÿç‰©
+            // å¦‚æœ Partner å·²ç»é¢„è®¢äº†é£Ÿç‰©ï¼Œæˆ‘ä»¬å…è®¸è¿™ç§æƒ…å†µï¼ˆç”± Partner æ¬è¿ï¼‰
+            if (!pawn.Reserve(Food, job, 1, -1, null, false))
             {
-                // ¼ì²éÊÇ·ñ±»»ï°éÔ¤Áô
                 Pawn reserver = pawn.Map?.reservationManager?.FirstRespectedReserver(Food, pawn);
                 if (reserver != Partner)
                 {
+                    // è¢«å…¶ä»–äººé¢„è®¢äº†
                     if (errorOnFailed)
                     {
-                        Log.Warning($"[SocialDine] {pawn.LabelShort} ÎŞ·¨Ô¤ÁôÊ³Îï£¨ÒÑ±» {reserver?.LabelShort ?? "Î´Öª"} Ô¤Áô£©");
+                        Log.Warning($"[SocialDine] {pawn.LabelShort} æ— æ³•é¢„è®¢é£Ÿç‰©ï¼Œå·²è¢« {reserver?.LabelShort ?? "æœªçŸ¥"} é¢„è®¢");
                     }
                     return false;
                 }
-                // Èç¹ûÊÇ»ï°éÔ¤ÁôµÄ£¬¼ÌĞø³¢ÊÔÔ¤Áô£¨¶àÈË¹²Ïí£©
+                // æ˜¯ Partner é¢„è®¢çš„ï¼Œæˆ‘ä»¬å¯ä»¥ç»§ç»­ï¼Œåªéœ€è¦é¢„è®¢æ¤…å­
             }
 
-            // ³¢ÊÔÔ¤ÁôÊ³Îï
-            if (!pawn.Reserve(Food, job, 1, -1, null, errorOnFailed))
+            // 2. é¢„è®¢æ¡Œå­/æ¤…å­ (TargetB)
+            // æ³¨æ„ï¼šä¸¤ä¸ªäººå…±ç”¨åŒä¸€å¼ æ¡Œå­ï¼Œæ‰€ä»¥ maxPawns éœ€è¦è‡³å°‘ä¸º 2
+            // stackCount å¯¹äºå»ºç­‘ç‰©åº”è¯¥è®¾ä¸º 0ï¼ˆä¸é€‚ç”¨ï¼‰ï¼Œå¦åˆ™ä¼šäº§ç”Ÿè­¦å‘Š
+            if (job.targetB.IsValid)
             {
-                return false;
-            }
-
-            // ³¢ÊÔÔ¤Áô×ÀÒÎ£¨Èç¹ûÓĞ£©
-            if (job.targetB.IsValid && job.targetB.HasThing)
-            {
-                // ×ÀÒÎÔÊĞí±»»ï°é¹²Ïí£¬²»Ç¿ÖÆ¼ì²é
-                pawn.Reserve(job.targetB, job, 1, -1, null, false);
+                int maxPawns = 2; // å…è®¸ä¸¤äººå…±ç”¨æ¡Œå­
+                if (job.targetB.HasThing && job.targetB.Thing.def?.surfaceType == SurfaceType.Eat)
+                {
+                    maxPawns = 8; // é¤æ¡Œå¯èƒ½å®¹çº³æ›´å¤šäºº
+                }
+                // stackCount = 0 è¡¨ç¤ºä¸é€‚ç”¨ï¼ˆç”¨äºå»ºç­‘ç‰©ï¼‰ï¼Œé¿å… "maxPawns > 1 and stackCount = All" è­¦å‘Š
+                if (!pawn.Reserve(job.targetB, job, maxPawns, 0, null, errorOnFailed))
+                {
+                    return false;
+                }
             }
 
             return true;
@@ -67,15 +72,25 @@ namespace RimTalkExpandActions.SocialDining
 
         protected override IEnumerable<Toil> MakeNewToils()
         {
-            // --- Toil 0: Ê§°ÜÌõ¼ş + ÇåÀí´¦Àí ---
-            this.FailOnDestroyedNullOrForbidden(FoodInd);
+            // --- Toil 0: å¤±è´¥æ¡ä»¶ ---
+            // æ³¨æ„ï¼šä¸ä½¿ç”¨ FailOnDestroyedNullOrForbidden(FoodInd)ï¼Œ
+            // å› ä¸ºå®ƒä¼šæ£€æŸ¥ !thing.Spawnedï¼Œè€Œé£Ÿç‰©å¯èƒ½æ­£åœ¨è¢« Partner æºå¸¦
+            // æˆ‘ä»¬åªæ£€æŸ¥é£Ÿç‰©æ˜¯å¦ä¸º null æˆ–å·²é”€æ¯
             this.FailOn(() => Partner == null || Partner.Dead || !Partner.Spawned);
-            this.FailOn(() => Food == null || Food.Destroyed);
+            this.FailOn(() => {
+                if (Food == null || Food.Destroyed) return true;
+                // å¦‚æœé£Ÿç‰©åœ¨ Partner æˆ–æˆ‘èº«ä¸Šï¼Œé‚£æ˜¯æ­£å¸¸çš„
+                if (IsFoodWithPartner() || IsFoodWithMe()) return false;
+                // å¦‚æœé£Ÿç‰© Spawned åœ¨åœ°å›¾ä¸Šï¼Œé‚£ä¹Ÿæ˜¯æ­£å¸¸çš„
+                if (Food.Spawned) return false;
+                // å…¶ä»–æƒ…å†µï¼ˆé£Ÿç‰©æ¶ˆå¤±äº†ä½†æ²¡é”€æ¯ï¼‰è§†ä¸ºå¤±è´¥
+                return true;
+            });
             
-            // Ìí¼ÓÊ§°ÜÊ±µÄÇåÀí»Øµ÷£¨ĞèÒª½ÓÊÜ JobCondition ²ÎÊı£©
+            // ç¡®ä¿ä»»åŠ¡ç»“æŸæ—¶æ¸…ç† Tracker
             this.AddFinishAction((JobCondition condition) => CleanupTracker());
 
-            // --- Toil 1: ×¢²áµ½×·×ÙÆ÷ ---
+            // --- Toil 1: æ³¨å†Œåˆ° Tracker ---
             yield return Toils_General.Do(delegate
             {
                 if (Food != null && !Food.Destroyed)
@@ -93,54 +108,158 @@ namespace RimTalkExpandActions.SocialDining
                 }
             });
 
-            // --- Toil 2: Ç°ÍùÊ³ÎïÎ»ÖÃ ---
+            // å®šä¹‰åç»­ Toils ä»¥ä¾¿è·³è½¬
+            // æ³¨æ„ï¼šå¦‚æœæ²¡æœ‰æ¡Œå­ï¼Œæˆ‘ä»¬ä½¿ç”¨ GotoCell ä½œä¸ºå¤‡ç”¨
+            Toil gotoTable;
+            if (Table != null)
+            {
+                gotoTable = Toils_Goto.GotoThing(TableInd, PathEndMode.OnCell);
+            }
+            else
+            {
+                // æ²¡æœ‰æ¡Œå­æ—¶ï¼Œå» Partner é™„è¿‘
+                gotoTable = new Toil
+                {
+                    initAction = delegate
+                    {
+                        if (Partner != null && Partner.Spawned)
+                        {
+                            pawn.pather.StartPath(Partner.Position, PathEndMode.Touch);
+                        }
+                    },
+                    defaultCompleteMode = ToilCompleteMode.PatherArrival
+                };
+            }
+            
+            // å»¶è¿Ÿåˆ›å»º eatToilï¼Œç¡®ä¿åœ¨éœ€è¦æ—¶ Food æœ‰æ•ˆ
+            Toil eatToil = null;
+
+            // --- Toil 2: å†³ç­–é€»è¾‘ (è°å»æ¬è¿) ---
+            yield return Toils_General.Do(delegate
+            {
+                bool foodWithPartner = IsFoodWithPartner();
+                bool foodWithMe = IsFoodWithMe();
+                bool partnerReserved = pawn.Map.reservationManager.ReservedBy(Food, Partner);
+
+                // å¦‚æœé£Ÿç‰©åœ¨ Partner é‚£é‡Œï¼Œæˆ–è€… Partner é¢„è®¢äº†ï¼ˆä¸”ä¸åœ¨æˆ‘è¿™é‡Œï¼‰ï¼Œæˆ‘å»æ¡Œå­ç­‰
+                if (foodWithPartner || (partnerReserved && !foodWithMe))
+                {
+                    pawn.jobs.curDriver.JumpToToil(gotoTable);
+                }
+                // å¦‚æœé£Ÿç‰©åœ¨æˆ‘è¿™é‡Œï¼ˆå·²ç»åœ¨æ¬è¿ï¼‰ï¼Œç›´æ¥å»æ¡Œå­
+                else if (pawn.carryTracker.CarriedThing == Food)
+                {
+                    pawn.jobs.curDriver.JumpToToil(gotoTable);
+                }
+                // å¦åˆ™ï¼Œæˆ‘å»æ‹¿é£Ÿç‰© (ç»§ç»­æ‰§è¡Œä¸‹ä¸€ä¸ª Toil)
+            });
+
+            // --- Toil 3: å»é£Ÿç‰©ä½ç½® ---
             yield return Toils_Goto.GotoThing(FoodInd, PathEndMode.ClosestTouch)
                 .FailOnDespawnedNullOrForbidden(FoodInd);
 
-            // --- Toil 3: Ê°È¡Ê³Îï ---
+            // --- Toil 4: æ‹¿èµ·é£Ÿç‰© ---
             yield return Toils_Haul.StartCarryThing(FoodInd, false, true)
                 .FailOnDestroyedNullOrForbidden(FoodInd);
 
-            // --- Toil 4: Ç°Íù²Í×À£¨Èç¹ûÓĞ£© ---
-            Toil gotoTable = Toils_Goto.GotoThing(TableInd, PathEndMode.OnCell);
-            gotoTable.FailOn(() => Table != null && (Table.Destroyed || !Table.Spawned));
-            gotoTable.initAction = delegate
-            {
-                // Èç¹ûÃ»ÓĞ×À×Ó£¬Ö±½ÓÌøµ½½øÊ³
-                if (Table == null)
-                {
-                    JumpToToil(MakeEatingToil());
-                }
-            };
+            // --- Toil 5: å»æ¡Œå­ (æ‰€æœ‰äººéƒ½æ‰§è¡Œ) ---
             yield return gotoTable;
 
-            // --- Toil 5: ·ÅÏÂÊ³Îï ---
-            Toil dropFood = new Toil
+            // --- Toil 6: æ”¾ä¸‹é£Ÿç‰© (å¦‚æœæ‹¿ç€) ---
+            yield return new Toil
             {
                 initAction = delegate
                 {
-                    if (pawn.carryTracker?.CarriedThing == Food)
+                    if (pawn.carryTracker.CarriedThing == Food)
                     {
-                        pawn.carryTracker.TryDropCarriedThing(pawn.Position, ThingPlaceMode.Near, out Thing _);
+                        pawn.carryTracker.TryDropCarriedThing(pawn.Position, ThingPlaceMode.Direct, out Thing _);
                     }
                 },
                 defaultCompleteMode = ToilCompleteMode.Instant
             };
-            yield return dropFood;
 
-            // --- Toil 6: ³Ô·¹£¨Í¬²½¶¯»­£© ---
-            Toil eatToil = MakeEatingToil();
-            yield return eatToil;
-
-            // --- Toil 7: Íê³ÉÓÃ²Í£¨²»Ôö¼ÓÓªÑø£¡£© ---
-            Toil finishEating = new Toil
+            // --- Toil 7: ç­‰å¾…é£Ÿç‰© (å¦‚æœè¿˜æ²¡åˆ°) ---
+            // å¦‚æœé£Ÿç‰©ä¸åœ¨é™„è¿‘ï¼ˆæ¯”å¦‚ Partner è¿˜æ²¡æ¬è¿‡æ¥ï¼‰ï¼Œç­‰å¾…
+            int waitTimeout = 2500; // çº¦40ç§’
+            Toil waitForFood = new Toil
             {
                 initAction = delegate
                 {
-                    // ×¢Ïú×·×ÙÆ÷
+                    pawn.pather.StopDead();
+                    pawn.jobs.curDriver.ticksLeftThisToil = waitTimeout; // æ‰‹åŠ¨è®¾ç½®è¶…æ—¶è®¡æ•°å™¨
+                },
+                tickAction = delegate
+                {
+                    if (Partner != null && Partner.Spawned) pawn.rotationTracker.FaceTarget(Partner);
+                    pawn.jobs.curDriver.ticksLeftThisToil--; // æ‰‹åŠ¨é€’å‡
+                },
+                defaultCompleteMode = ToilCompleteMode.Never
+            };
+            
+            // ç»“æŸæ¡ä»¶ï¼šé£Ÿç‰©å°±åœ¨é™„è¿‘ï¼ˆåœ¨åœ°å›¾ä¸Šæˆ–è€…åœ¨æˆ‘/Partneræ‰‹ä¸­ä¸”æˆ‘ä»¬éƒ½åœ¨æ¡Œå­æ—ï¼‰
+            waitForFood.AddEndCondition(delegate
+            {
+                // é£Ÿç‰©åœ¨åœ°å›¾ä¸Šä¸”è·ç¦»è¶³å¤Ÿè¿‘
+                if (Food != null && Food.Spawned && (Food.Position == pawn.Position || Food.Position.DistanceTo(pawn.Position) < 2f))
+                {
+                    return JobCondition.Succeeded;
+                }
+                // é£Ÿç‰©åœ¨ Partner æ‰‹ä¸­ï¼Œä¸” Partner å·²ç»åˆ°æ¡Œå­é™„è¿‘
+                if (IsFoodWithPartner() && Partner != null && Partner.Spawned && Partner.Position.DistanceTo(pawn.Position) < 3f)
+                {
+                    return JobCondition.Succeeded;
+                }
+                // è¶…æ—¶æ£€æŸ¥
+                if (pawn.jobs.curDriver.ticksLeftThisToil <= 0)
+                {
+                    return JobCondition.Incompletable;
+                }
+                return JobCondition.Ongoing;
+            });
+            
+            // å¦‚æœé£Ÿç‰©å·²ç»åˆ°ä½ï¼Œè·³è¿‡ç­‰å¾…
+            Func<bool> foodIsNearby = () =>
+            {
+                if (Food == null) return false;
+                if (Food.Spawned && (Food.Position == pawn.Position || Food.Position.DistanceTo(pawn.Position) < 2f))
+                {
+                    return true;
+                }
+                if (IsFoodWithPartner() && Partner != null && Partner.Spawned && Partner.Position.DistanceTo(pawn.Position) < 3f)
+                {
+                    return true;
+                }
+                return false;
+            };
+            
+            // --- Toil 8: è¿›é£Ÿå‡†å¤‡ ---
+            // åœ¨è¿™é‡Œåˆ›å»º eatToilï¼Œç¡®ä¿ Food æœ‰æ•ˆ
+            Toil prepareEating = new Toil
+            {
+                initAction = delegate
+                {
+                    // åœ¨è¿™é‡Œåˆ›å»ºå®é™…çš„è¿›é£Ÿ Toil
+                    eatToil = MakeEatingToilSafe();
+                },
+                defaultCompleteMode = ToilCompleteMode.Instant
+            };
+            
+            yield return Toils_Jump.JumpIf(prepareEating, foodIsNearby);
+            yield return waitForFood;
+
+            // --- Toil 9: è¿›é£Ÿå‡†å¤‡ï¼ˆç¡®ä¿åœ¨ç­‰å¾…åä¹Ÿåˆ›å»º eatToilï¼‰---
+            yield return prepareEating;
+            
+            // --- Toil 10: è¿›é£Ÿ ---
+            // ä½¿ç”¨è‡ªå®šä¹‰ Toil æ¥æ‰§è¡Œå®é™…çš„è¿›é£Ÿé€»è¾‘
+            yield return MakeActualEatingToil();
+
+            // --- Toil 9: ç»“æŸæ¸…ç† ---
+            yield return new Toil
+            {
+                initAction = delegate
+                {
                     CleanupTracker();
-                    
-                    // Ìí¼ÓĞÄÇé¼Ó³É
                     if (Partner != null && !Partner.Dead && pawn.needs?.mood?.thoughts?.memories != null)
                     {
                         pawn.needs.mood.thoughts.memories.TryGainMemory(SocialDiningDefOf.AteWithColonist, Partner);
@@ -148,62 +267,109 @@ namespace RimTalkExpandActions.SocialDining
                 },
                 defaultCompleteMode = ToilCompleteMode.Instant
             };
-            yield return finishEating;
         }
 
-        /// <summary>
-        /// ´´½¨½øÊ³ Toil - Í¬²½¶¯»­ºÍÓªÑøÔö¼Ó
-        /// </summary>
-        private Toil MakeEatingToil()
+        private bool IsFoodWithPartner()
         {
-            // ¼ÆËã½øÊ³Ê±¼äºÍÓªÑø
-            float nutritionTotal = FoodUtility.GetNutrition(pawn, Food, Food.def);
-            int ticksToEat = (int)(nutritionTotal * 1600f); // ±ê×¼½øÊ³Ê±¼ä
-            float nutritionPerTick = nutritionTotal / ticksToEat;
+            if (Food == null || Partner == null) return false;
+            return Food.ParentHolder == Partner || 
+                   (Food.ParentHolder is Pawn_InventoryTracker inv && inv.pawn == Partner) || 
+                   (Food.ParentHolder is Pawn_CarryTracker carry && carry.pawn == Partner);
+        }
 
+        private bool IsFoodWithMe()
+        {
+            if (Food == null) return false;
+            return Food.ParentHolder == pawn || 
+                   (Food.ParentHolder is Pawn_InventoryTracker inv && inv.pawn == pawn) || 
+                   (Food.ParentHolder is Pawn_CarryTracker carry && carry.pawn == pawn);
+        }
+
+        // ç¼“å­˜çš„è¿›é£Ÿå‚æ•°
+        private float cachedNutritionPerTick = 0f;
+        private int cachedTicksToEat = 500; // é»˜è®¤å€¼
+        
+        /// <summary>
+        /// å®‰å…¨åœ°åˆ›å»ºè¿›é£Ÿ Toilï¼ˆåœ¨è¿›é£Ÿå‰è°ƒç”¨ï¼Œæ­¤æ—¶ Food åº”è¯¥æœ‰æ•ˆï¼‰
+        /// </summary>
+        private Toil MakeEatingToilSafe()
+        {
+            // è®¡ç®—å¹¶ç¼“å­˜è¿›é£Ÿå‚æ•°
+            if (Food != null && Food.def != null)
+            {
+                float nutritionTotal = FoodUtility.GetNutrition(pawn, Food, Food.def);
+                cachedTicksToEat = (int)(nutritionTotal * 1600f);
+                if (cachedTicksToEat <= 0) cachedTicksToEat = 500; // é˜²æ­¢é™¤ä»¥é›¶
+                cachedNutritionPerTick = nutritionTotal / cachedTicksToEat;
+            }
+            else
+            {
+                // ä½¿ç”¨é»˜è®¤å€¼
+                cachedTicksToEat = 500;
+                cachedNutritionPerTick = 0.5f / cachedTicksToEat;
+            }
+            
+            return new Toil { defaultCompleteMode = ToilCompleteMode.Instant };
+        }
+        
+        /// <summary>
+        /// åˆ›å»ºå®é™…æ‰§è¡Œè¿›é£Ÿçš„ Toil
+        /// </summary>
+        private Toil MakeActualEatingToil()
+        {
             Toil eatFood = new Toil
             {
                 initAction = delegate
                 {
                     pawn.pather.StopDead();
-                    pawn.jobs.curDriver.ticksLeftThisToil = ticksToEat;
+                    // é‡æ–°è®¡ç®—ä»¥é˜²å‚æ•°æœªç¼“å­˜
+                    if (cachedTicksToEat <= 0 && Food != null && Food.def != null)
+                    {
+                        float nutritionTotal = FoodUtility.GetNutrition(pawn, Food, Food.def);
+                        cachedTicksToEat = (int)(nutritionTotal * 1600f);
+                        if (cachedTicksToEat <= 0) cachedTicksToEat = 500;
+                        cachedNutritionPerTick = nutritionTotal / cachedTicksToEat;
+                    }
+                    pawn.jobs.curDriver.ticksLeftThisToil = cachedTicksToEat;
                 },
                 tickAction = delegate
                 {
-                    // ÃæÏò»ï°é
                     if (Partner != null && Partner.Spawned)
                     {
                         pawn.rotationTracker.FaceTarget(Partner);
                     }
                     
-                    // Öğ½¥Ôö¼ÓÓªÑø£¨ÕâÀïÔö¼Ó£¬Toil 7 ²»ÔÙÔö¼Ó£©
-                    if (pawn.needs?.food != null)
+                    if (pawn.needs?.food != null && cachedNutritionPerTick > 0)
                     {
-                        pawn.needs.food.CurLevel += nutritionPerTick;
+                        pawn.needs.food.CurLevel += cachedNutritionPerTick;
                     }
                 },
                 defaultCompleteMode = ToilCompleteMode.Delay,
-                defaultDuration = ticksToEat,
+                defaultDuration = cachedTicksToEat > 0 ? cachedTicksToEat : 500,
                 handlingFacing = true
             };
             
-            // Ìí¼Ó½øÊ³Ğ§¹û
+            // å®‰å…¨åœ°æ·»åŠ æ•ˆæœ
             if (Food?.def?.ingestible?.ingestEffect != null)
             {
-                eatFood.WithEffect(() => Food.def.ingestible.ingestEffect, FoodInd);
+                eatFood.WithEffect(() => Food?.def?.ingestible?.ingestEffect, FoodInd);
             }
-            eatFood.WithProgressBar(FoodInd, () => 1f - (float)pawn.jobs.curDriver.ticksLeftThisToil / ticksToEat, interpolateBetweenActorAndTarget: false);
+            
+            // å®‰å…¨åœ°æ·»åŠ è¿›åº¦æ¡
+            eatFood.WithProgressBar(FoodInd, () =>
+            {
+                int totalTicks = cachedTicksToEat > 0 ? cachedTicksToEat : 500;
+                return 1f - (float)pawn.jobs.curDriver.ticksLeftThisToil / totalTicks;
+            }, interpolateBetweenActorAndTarget: false);
+            
             if (Food?.def?.ingestible?.ingestSound != null)
             {
-                eatFood.PlaySustainerOrSound(() => Food.def.ingestible.ingestSound);
+                eatFood.PlaySustainerOrSound(() => Food?.def?.ingestible?.ingestSound);
             }
             
             return eatFood;
         }
 
-        /// <summary>
-        /// ÇåÀí×·×ÙÆ÷ - ·ÀÖ¹ÓÄÁéËø¶¨
-        /// </summary>
         private void CleanupTracker()
         {
             if (isRegisteredWithTracker && Food != null && !Food.Destroyed)
@@ -217,7 +383,6 @@ namespace RimTalkExpandActions.SocialDining
                         bool isLastEater = tracker.UnregisterEater(pawn);
                         isRegisteredWithTracker = false;
                         
-                        // ĞÒ´æÕßÏú»ÙÂß¼­£ºÖ»ÓĞ×îºóÒ»¸ö³ÔÍêµÄÈË²ÅÏú»ÙÊ³Îï
                         if (isLastEater && !Food.Destroyed)
                         {
                             Food.Destroy(DestroyMode.Vanish);
@@ -227,9 +392,6 @@ namespace RimTalkExpandActions.SocialDining
             }
         }
 
-        /// <summary>
-        /// Ñ°Â·Ê§°ÜÊ±Ò²ÒªÇåÀí
-        /// </summary>
         public override void Notify_PatherFailed()
         {
             base.Notify_PatherFailed();
@@ -240,7 +402,7 @@ namespace RimTalkExpandActions.SocialDining
         {
             if (Partner != null)
             {
-                return "Óë " + Partner.NameShortColored + " ¹²Í¬½ø²Í";
+                return "Dining with " + Partner.LabelShort;
             }
             return base.GetReport();
         }

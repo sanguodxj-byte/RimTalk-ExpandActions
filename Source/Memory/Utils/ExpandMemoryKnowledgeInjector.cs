@@ -9,52 +9,278 @@ using RimWorld;
 namespace RimTalkExpandActions.Memory.Utils
 {
     /// <summary>
-    /// RimTalk-ExpandMemory ³£Ê¶¿âÊÖ¶¯×¢ÈëÆ÷
+    /// RimTalk-ExpandMemory å¸¸è¯†åº“æ™ºèƒ½æ³¨å…¥å™¨ v4.0
     /// 
-    /// ÓÃ»§ËµÃ÷£º
-    /// - ³£Ê¶¿âÊÇ´æµµ°ó¶¨Êı¾İ£¬ĞÂ½¨ÓÎÏ·»ò¼ÓÔØÊ±×Ô¶¯×¢Èë
-    /// - ÓÃ»§ĞèÒªÔÚ¼ÓÔØ´æµµºóÍ¨¹ı Mod ÉèÖÃ½øĞĞÊÖ¶¯×¢Èë
-    /// - Ã¿¸ö´æµµÓµÓĞ¶ÀÁ¢µÄ³£Ê¶¿âÊµÀı
+    /// æ›´æ–°è¯´æ˜ï¼š
+    /// - v4.0: å®Œå…¨é‡å†™ä»¥é€‚é…æ–°ç‰ˆ CommonKnowledgeLibrary API
+    /// - æ”¯æŒæ ‡ç­¾åˆ†ç±»æ³¨å…¥ï¼ˆè§„åˆ™ç±»å‹è‡ªåŠ¨åˆ†ç±»ä¸º Guidelinesï¼‰
+    /// - ä¼˜åŒ–æ³¨å…¥é€»è¾‘ï¼Œä½¿ç”¨ AddKnowledgeEx æ–¹æ³•
+    /// - æ·»åŠ æ‰¹é‡æ“ä½œå’Œé”™è¯¯å¤„ç†
     /// 
-    /// ¸üĞÂÈÕÖ¾ v3.1£º
-    /// - ¸ÄÓÃ AddEntry(string, string) API£¨ÖğÌõÌí¼Ó£©
-    /// - ÒÆ³ıËùÓĞ»»ĞĞ·ûºÍ¶àÓà±êµã·ûºÅ
-    /// - ÓÅ»¯¹æÔòÄÚÈİ¸ñÊ½Îªµ¥ĞĞ½ô´Õ¸ñÊ½
+    /// ç”¨æˆ·è¯´æ˜ï¼š
+    /// - å¸¸è¯†åº“æ˜¯å­˜æ¡£ç»‘å®šæ•°æ®ï¼Œæ–°å»ºæ¸¸æˆæˆ–åŠ è½½æ—¶è‡ªåŠ¨æ³¨å…¥
+    /// - ç”¨æˆ·éœ€è¦åœ¨åŠ è½½å­˜æ¡£åé€šè¿‡ Mod è®¾ç½®è¿›è¡Œæ‰‹åŠ¨æ³¨å…¥
+    /// - æ¯ä¸ªå­˜æ¡£æ‹¥æœ‰ç‹¬ç«‹çš„å¸¸è¯†åº“å®ä¾‹
     /// </summary>
     public static class ExpandMemoryKnowledgeInjector
     {
         /// <summary>
-        /// ×¢Èë½á¹û
+        /// æ³¨å…¥ç»“æœ
         /// </summary>
         public class InjectionResult
         {
             public bool Success { get; set; }
             public int TotalRules { get; set; }
             public int InjectedRules { get; set; }
+            public int FailedRules { get; set; }
             public List<string> InjectedRuleNames { get; set; } = new List<string>();
+            public List<string> FailedRuleNames { get; set; } = new List<string>();
+            public Dictionary<string, string> FailureReasons { get; set; } = new Dictionary<string, string>();
             public string ErrorMessage { get; set; }
         }
 
         /// <summary>
-        /// »ñÈ¡ËùÓĞĞĞÎª¹æÔòµÄÃèÊö
+        /// è·å–å½“å‰å¯ç”¨çš„è¡Œä¸ºåˆ—è¡¨
+        /// </summary>
+        public static HashSet<string> EnabledBehaviors
+        {
+            get
+            {
+                var enabled = new HashSet<string>();
+                var settings = RimTalkExpandActionsMod.Settings;
+                
+                if (settings == null)
+                {
+                    // å¦‚æœè®¾ç½®æœªåŠ è½½ï¼Œè¿”å›å…¨éƒ¨å¯ç”¨
+                    foreach (var rule in BehaviorRuleContents.GetAllRules())
+                    {
+                        enabled.Add(rule.Key);
+                    }
+                    return enabled;
+                }
+                
+                if (settings.enableRecruit) enabled.Add("expand-action-recruit");
+                if (settings.enableDropWeapon) enabled.Add("expand-action-drop-weapon");
+                if (settings.enableRomance) enabled.Add("expand-action-romance");
+                if (settings.enableInspiration) enabled.Add("expand-action-inspiration");
+                if (settings.enableRest) enabled.Add("expand-action-rest");
+                if (settings.enableGift) enabled.Add("expand-action-gift");
+                if (settings.enableSocialDining) enabled.Add("expand-action-social-dining");
+                if (settings.enableSocialRelax) enabled.Add("expand-action-social-relax");
+                
+                return enabled;
+            }
+        }
+
+        /// <summary>
+        /// è·å–æ‰€æœ‰è¡Œä¸ºè§„åˆ™çš„æè¿°
         /// </summary>
         public static Dictionary<string, string> GetRuleDescriptions()
         {
             return new Dictionary<string, string>
             {
-                { "ÕĞÄ¼ÏµÍ³", "Í¨¹ı¶Ô»°ÕĞÄ¼ NPC µ½Ö³ÃñµØ" },
-                { "Éç½»ÓÃ²Í", "ÑûÇëËûÈË¹²½øÍí²ÍÔö½ø¹ØÏµ" },
-                { "Í¶½µÏµÍ³", "ÈÃµĞÈË·ÅÏÂÎäÆ÷Í¶½µ" },
-                { "Áµ°®¹ØÏµ", "½¨Á¢»ò½áÊøÁµÈË¹ØÏµ" },
-                { "Áé¸Ğ´¥·¢", "¸øÓè½ÇÉ«¹¤×÷Õ½¶·½»Ò×Áé¸Ğ" },
-                { "Ç¿ÖÆĞİÏ¢", "ÈÃ½ÇÉ«È¥ĞİÏ¢»òÏİÈë»èÃÔ" },
-                { "ÔùËÍÎïÆ·", "´Ó±³°üÖĞÔùËÍÎïÆ·¸øËûÈË" },
-                { "Éç½»·ÅËÉ", "×éÖ¯¶àÈË½øĞĞÉç½»ÓéÀÖ»î¶¯" }
+                { "æ‹›å‹Ÿç³»ç»Ÿ", "é€šè¿‡å¯¹è¯æ‹›å‹Ÿ NPC åˆ°æ®–æ°‘åœ°" },
+                { "ç¤¾äº¤ç”¨é¤", "é‚€è¯·ä»–äººå…±è¿›æ™šé¤å¢è¿›å…³ç³»" },
+                { "æŠ•é™ç³»ç»Ÿ", "è®©æ•Œäººæ”¾ä¸‹æ­¦å™¨æŠ•é™" },
+                { "æ‹çˆ±å…³ç³»", "å»ºç«‹æˆ–ç»“æŸæ‹äººå…³ç³»" },
+                { "çµæ„Ÿè§¦å‘", "ç»™äºˆè§’è‰²å·¥ä½œæˆ˜æ–—äº¤æ˜“çµæ„Ÿ" },
+                { "å¼ºåˆ¶ä¼‘æ¯", "è®©è§’è‰²å»ä¼‘æ¯æˆ–é™·å…¥æ˜è¿·" },
+                { "èµ é€ç‰©å“", "ä»èƒŒåŒ…ä¸­èµ é€ç‰©å“ç»™ä»–äºº" },
+                { "ç¤¾äº¤æ”¾æ¾", "ç»„ç»‡å¤šäººè¿›è¡Œç¤¾äº¤å¨±ä¹æ´»åŠ¨" }
             };
         }
 
         /// <summary>
-        /// ÊÖ¶¯×¢Èë³£Ê¶¿âµ½µ±Ç°´æµµ
+        /// æ¸…é™¤æ—§è§„åˆ™å¹¶é‡æ–°æ³¨å…¥æ‰€æœ‰è§„åˆ™
+        /// </summary>
+        public static InjectionResult ClearAndReinject()
+        {
+            var result = new InjectionResult();
+            
+            try
+            {
+                Log.Message("[RimTalk-ExpandActions] â•â•â•â•â•â•â•â•â•â•â• æ¸…é™¤å¹¶é‡æ–°æ³¨å…¥å¸¸è¯†åº“ v4.0 â•â•â•â•â•â•â•â•â•â•â•");
+                
+                // 1. å…ˆæ¸…é™¤æ—§è§„åˆ™
+                var clearResult = ClearOldRules();
+                if (!clearResult.Success)
+                {
+                    Log.Warning($"[RimTalk-ExpandActions] æ¸…é™¤æ—§è§„åˆ™æ—¶å‡ºç°é—®é¢˜: {clearResult.ErrorMessage}");
+                    // ç»§ç»­å°è¯•æ³¨å…¥
+                }
+                else
+                {
+                    Log.Message($"[RimTalk-ExpandActions] å·²æ¸…é™¤ {clearResult.InjectedRules} æ¡æ—§è§„åˆ™");
+                }
+                
+                // 2. é‡æ–°æ³¨å…¥
+                return ManualInject();
+            }
+            catch (Exception ex)
+            {
+                result.ErrorMessage = $"æ¸…é™¤å¹¶é‡æ–°æ³¨å…¥å¤±è´¥: {ex.Message}";
+                Log.Error($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                Log.Error($"[RimTalk-ExpandActions] å †æ ˆè·Ÿè¸ª:\n{ex.StackTrace}");
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// æ¸…é™¤æ‰€æœ‰æ—§çš„ ExpandActions è§„åˆ™
+        /// v4.1: ä½¿ç”¨å®ä¾‹æ–¹æ³•é€šè¿‡ MemoryManager.CommonKnowledge.Entries åˆ—è¡¨
+        /// </summary>
+        public static InjectionResult ClearOldRules()
+        {
+            var result = new InjectionResult();
+            
+            try
+            {
+                Log.Message("[RimTalk-ExpandActions] â•â•â•â•â•â•â•â•â•â•â• æ¸…é™¤æ—§è§„åˆ™ v4.1 â•â•â•â•â•â•â•â•â•â•â•");
+                
+                // 1. æ£€æŸ¥æ˜¯å¦æœ‰æ´»è·ƒæ¸¸æˆ
+                if (Current.Game == null || Find.World == null)
+                {
+                    result.ErrorMessage = "è¯·å…ˆåŠ è½½æˆ–åˆ›å»ºæ¸¸æˆå­˜æ¡£";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
+                }
+                
+                // 2. è·å– MemoryManagerï¼ˆWorldç»„ä»¶ï¼‰
+                Type memoryManagerType = FindType("RimTalk.Memory.MemoryManager");
+                if (memoryManagerType == null)
+                {
+                    result.ErrorMessage = "æœªæ‰¾åˆ° RimTalk.Memory.MemoryManager";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
+                }
+                
+                // 3. è·å– MemoryManager å®ä¾‹
+                object memoryManager = null;
+                try
+                {
+                    var getComponentMethod = typeof(RimWorld.Planet.World).GetMethod("GetComponent", new Type[] { });
+                    var genericMethod = getComponentMethod.MakeGenericMethod(memoryManagerType);
+                    memoryManager = genericMethod.Invoke(Find.World, null);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"[RimTalk-ExpandActions] GetComponent<MemoryManager> å¤±è´¥: {ex.Message}");
+                }
+                
+                if (memoryManager == null)
+                {
+                    result.ErrorMessage = "æœªèƒ½è·å– MemoryManager å®ä¾‹";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
+                }
+                
+                // 4. è·å– CommonKnowledge å±æ€§
+                PropertyInfo commonKnowledgeProp = memoryManagerType.GetProperty("CommonKnowledge");
+                if (commonKnowledgeProp == null)
+                {
+                    result.ErrorMessage = "æœªæ‰¾åˆ° CommonKnowledge å±æ€§";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
+                }
+                
+                object commonKnowledge = commonKnowledgeProp.GetValue(memoryManager);
+                if (commonKnowledge == null)
+                {
+                    result.ErrorMessage = "CommonKnowledge ä¸º null";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
+                }
+                
+                Type commonKnowledgeType = commonKnowledge.GetType();
+                
+                // 5. è·å– Entries å±æ€§
+                PropertyInfo entriesProp = commonKnowledgeType.GetProperty("Entries");
+                if (entriesProp == null)
+                {
+                    result.ErrorMessage = "æœªæ‰¾åˆ° Entries å±æ€§";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
+                }
+                
+                var entriesList = entriesProp.GetValue(commonKnowledge) as System.Collections.IList;
+                if (entriesList == null)
+                {
+                    result.Success = true;
+                    result.InjectedRules = 0;
+                    Log.Message("[RimTalk-ExpandActions] Entries åˆ—è¡¨ä¸ºç©ºï¼Œæ— éœ€æ¸…é™¤");
+                    return result;
+                }
+                
+                // 6. è·å– RemoveEntry æ–¹æ³•
+                Type entryType = FindType("RimTalk.Memory.CommonKnowledgeEntry");
+                MethodInfo removeEntryMethod = commonKnowledgeType.GetMethod("RemoveEntry", new Type[] { entryType });
+                
+                if (removeEntryMethod == null)
+                {
+                    // æ²¡æœ‰ RemoveEntry æ–¹æ³•ï¼Œå°è¯•ç›´æ¥ä»åˆ—è¡¨ä¸­ç§»é™¤
+                    Log.Warning("[RimTalk-ExpandActions] æœªæ‰¾åˆ° RemoveEntry æ–¹æ³•ï¼Œå°è¯•ç›´æ¥ä»åˆ—è¡¨ç§»é™¤");
+                }
+                
+                // 7. æ‰¾åˆ°å¹¶åˆ é™¤æ‰€æœ‰ expand-action- å¼€å¤´çš„æ¡ç›®
+                var entriesToRemove = new List<object>();
+                
+                foreach (var entry in entriesList)
+                {
+                    if (entry == null) continue;
+                    
+                    // è·å– id å­—æ®µ
+                    FieldInfo idField = entryType.GetField("id");
+                    if (idField != null)
+                    {
+                        string id = idField.GetValue(entry) as string;
+                        if (!string.IsNullOrEmpty(id) && id.StartsWith("expand-action-"))
+                        {
+                            entriesToRemove.Add(entry);
+                        }
+                    }
+                }
+                
+                Log.Message($"[RimTalk-ExpandActions] æ‰¾åˆ° {entriesToRemove.Count} æ¡éœ€è¦æ¸…é™¤çš„æ—§è§„åˆ™");
+                
+                // 8. åˆ é™¤æ¡ç›®
+                int removedCount = 0;
+                foreach (var entry in entriesToRemove)
+                {
+                    try
+                    {
+                        if (removeEntryMethod != null)
+                        {
+                            removeEntryMethod.Invoke(commonKnowledge, new object[] { entry });
+                        }
+                        else
+                        {
+                            entriesList.Remove(entry);
+                        }
+                        removedCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning($"[RimTalk-ExpandActions] åˆ é™¤æ¡ç›®å¤±è´¥: {ex.Message}");
+                    }
+                }
+                
+                result.Success = true;
+                result.InjectedRules = removedCount;
+                Log.Message($"[RimTalk-ExpandActions] å·²æ¸…é™¤ {removedCount} æ¡æ—§è§„åˆ™");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.ErrorMessage = $"æ¸…é™¤å¤±è´¥: {ex.Message}";
+                Log.Error($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                Log.Error($"[RimTalk-ExpandActions] å †æ ˆè·Ÿè¸ª:\n{ex.StackTrace}");
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// æ‰‹åŠ¨æ³¨å…¥å¸¸è¯†åº“åˆ°å½“å‰å­˜æ¡£
+        /// v4.1: ä½¿ç”¨ MemoryManager.CommonKnowledge.AddEntry å®ä¾‹æ–¹æ³•
         /// </summary>
         public static InjectionResult ManualInject()
         {
@@ -62,147 +288,255 @@ namespace RimTalkExpandActions.Memory.Utils
             
             try
             {
-                Log.Message("[RimTalk-ExpandActions] ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T ÊÖ¶¯×¢Èë³£Ê¶¿â ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T");
+                Log.Message("[RimTalk-ExpandActions] â•â•â•â•â•â•â•â•â•â•â• æ‰‹åŠ¨æ³¨å…¥å¸¸è¯†åº“ v4.1 â•â•â•â•â•â•â•â•â•â•â•");
                 
-                // 1. ¼ì²éÊÇ·ñÓĞ»îÔ¾ÓÎÏ·
+                // 1. æ£€æŸ¥æ˜¯å¦æœ‰æ´»è·ƒæ¸¸æˆ
                 if (Current.Game == null || Find.World == null)
                 {
-                    result.ErrorMessage = "ÇëÏÈ¼ÓÔØ»ò´´½¨ÓÎÏ·´æµµ";
+                    result.ErrorMessage = "è¯·å…ˆåŠ è½½æˆ–åˆ›å»ºæ¸¸æˆå­˜æ¡£";
                     Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
                     return result;
                 }
                 
-                Log.Message("[RimTalk-ExpandActions] ? µ±Ç°ÓĞ»îÔ¾ÓÎÏ·´æµµ");
+                Log.Message("[RimTalk-ExpandActions] å½“å‰æœ‰æ´»è·ƒæ¸¸æˆå­˜æ¡£");
                 
-                // 2. ²éÕÒ CommonKnowledgeLibrary ÀàĞÍ
-                Type commonKnowledgeType = FindType("RimTalk.Memory.CommonKnowledgeLibrary");
-                if (commonKnowledgeType == null)
+                // 2. è·å– MemoryManagerï¼ˆWorldç»„ä»¶ï¼‰
+                Type memoryManagerType = FindType("RimTalk.Memory.MemoryManager");
+                if (memoryManagerType == null)
                 {
-                    result.ErrorMessage = "Î´ÕÒµ½ RimTalk-ExpandMemory£¬È·±£ÒÑ°²×°²¢ÆôÓÃ";
+                    result.ErrorMessage = "æœªæ‰¾åˆ° RimTalk.Memory.MemoryManagerï¼Œç¡®ä¿ RimTalk-ExpandMemory å·²å®‰è£…";
                     Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
                     return result;
                 }
                 
-                Log.Message($"[RimTalk-ExpandActions] ? ÕÒµ½ CommonKnowledgeLibrary: {commonKnowledgeType.FullName}");
+                Log.Message($"[RimTalk-ExpandActions] æ‰¾åˆ° MemoryManager: {memoryManagerType.FullName}");
                 
-                // 3. ²éÕÒ AddEntry ¾²Ì¬·½·¨
-                Log.Message("[RimTalk-ExpandActions] ²éÕÒ AddEntry ¾²Ì¬·½·¨...");
+                // 3. è·å– MemoryManager å®ä¾‹ï¼ˆé€šè¿‡ Find.World.GetComponentï¼‰
+                object memoryManager = null;
+                try
+                {
+                    var getComponentMethod = typeof(RimWorld.Planet.World).GetMethod("GetComponent", new Type[] { });
+                    var genericMethod = getComponentMethod.MakeGenericMethod(memoryManagerType);
+                    memoryManager = genericMethod.Invoke(Find.World, null);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"[RimTalk-ExpandActions] GetComponent<MemoryManager> å¤±è´¥: {ex.Message}");
+                }
                 
-                MethodInfo addEntryMethod = commonKnowledgeType.GetMethod(
-                    "AddEntry",
-                    BindingFlags.Public | BindingFlags.Static,
-                    null,
-                    new Type[] { typeof(string), typeof(string) },
-                    null
-                );
+                if (memoryManager == null)
+                {
+                    result.ErrorMessage = "æœªèƒ½è·å– MemoryManager å®ä¾‹ï¼Œè¯·ç¡®ä¿å­˜æ¡£å·²åŠ è½½";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
+                }
+                
+                Log.Message("[RimTalk-ExpandActions] è·å–åˆ° MemoryManager å®ä¾‹");
+                
+                // 4. è·å– CommonKnowledge å±æ€§
+                PropertyInfo commonKnowledgeProp = memoryManagerType.GetProperty("CommonKnowledge");
+                if (commonKnowledgeProp == null)
+                {
+                    result.ErrorMessage = "æœªæ‰¾åˆ° CommonKnowledge å±æ€§";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
+                }
+                
+                object commonKnowledge = commonKnowledgeProp.GetValue(memoryManager);
+                if (commonKnowledge == null)
+                {
+                    result.ErrorMessage = "CommonKnowledge ä¸º null";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
+                }
+                
+                Log.Message("[RimTalk-ExpandActions] è·å–åˆ° CommonKnowledge å®ä¾‹");
+                
+                // 5. è·å– CommonKnowledgeEntry ç±»å‹å’Œ AddEntry æ–¹æ³•
+                Type entryType = FindType("RimTalk.Memory.CommonKnowledgeEntry");
+                if (entryType == null)
+                {
+                    result.ErrorMessage = "æœªæ‰¾åˆ° CommonKnowledgeEntry ç±»å‹";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    return result;
+                }
+                
+                Type commonKnowledgeType = commonKnowledge.GetType();
+                MethodInfo addEntryMethod = commonKnowledgeType.GetMethod("AddEntry", new Type[] { entryType });
                 
                 if (addEntryMethod == null)
                 {
-                    // ³¢ÊÔ²éÕÒÈÎºÎ AddEntry ·½·¨
-                    var allAddEntryMethods = commonKnowledgeType.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                        .Where(m => m.Name == "AddEntry")
-                        .ToList();
-                    
-                    if (allAddEntryMethods.Any())
-                    {
-                        addEntryMethod = allAddEntryMethods.First();
-                        Log.Message($"[RimTalk-ExpandActions] Ê¹ÓÃÕÒµ½µÄ·½·¨: {addEntryMethod.Name}");
-                        
-                        var pars = string.Join(", ", addEntryMethod.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"));
-                        Log.Message($"[RimTalk-ExpandActions] ·½·¨Ç©Ãû: {addEntryMethod.Name}({pars})");
-                    }
-                    else
-                    {
-                        result.ErrorMessage = "Î´ÕÒµ½ AddEntry ¾²Ì¬·½·¨£¬°æ±¾²»¼æÈİ";
-                        Log.Error($"[RimTalk-ExpandActions] {result.ErrorMessage}");
-                        
-                        // ÁĞ³öËùÓĞ¿ÉÓÃ·½·¨
-                        Log.Warning("[RimTalk-ExpandActions] ¿ÉÓÃµÄ¾²Ì¬·½·¨:");
-                        foreach (var method in commonKnowledgeType.GetMethods(BindingFlags.Public | BindingFlags.Static))
-                        {
-                            var pars = string.Join(", ", method.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"));
-                            Log.Message($"[RimTalk-ExpandActions]   - {method.Name}({pars}) -> {method.ReturnType.Name}");
-                        }
-                        
-                        return result;
-                    }
+                    // å°è¯•è·å– AddEntry(string, string) æ–¹æ³•
+                    addEntryMethod = commonKnowledgeType.GetMethod("AddEntry", new Type[] { typeof(string), typeof(string) });
                 }
                 
-                Log.Message("[RimTalk-ExpandActions] ? ÕÒµ½ AddEntry ¾²Ì¬·½·¨");
+                if (addEntryMethod == null)
+                {
+                    result.ErrorMessage = "æœªæ‰¾åˆ° AddEntry æ–¹æ³•";
+                    Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
+                    
+                    // åˆ—å‡ºæ‰€æœ‰å¯ç”¨æ–¹æ³•
+                    Log.Warning("[RimTalk-ExpandActions] å¯ç”¨çš„å®ä¾‹æ–¹æ³•:");
+                    foreach (var method in commonKnowledgeType.GetMethods(BindingFlags.Public | BindingFlags.Instance))
+                    {
+                        var pars = string.Join(", ", method.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"));
+                        Log.Message($"[RimTalk-ExpandActions]   - {method.Name}({pars}) -> {method.ReturnType.Name}");
+                    }
+                    
+                    return result;
+                }
                 
-                // 4. ×¼±¸×¢ÈëÄÚÈİ
+                Log.Message($"[RimTalk-ExpandActions] æ‰¾åˆ°æ³¨å…¥æ–¹æ³•: {addEntryMethod.Name}");
+                
+                // 6. å‡†å¤‡æ³¨å…¥å†…å®¹
                 var allRules = BehaviorRuleContents.GetAllRules();
-                result.TotalRules = allRules.Count;
+                var enabledBehaviors = EnabledBehaviors;
                 
-                Log.Message($"[RimTalk-ExpandActions] ×¼±¸×¢Èë {result.TotalRules} ÌõĞĞÎª¹æÔò...");
+                // åªæ³¨å…¥å¯ç”¨çš„è§„åˆ™
+                var rulesToInject = allRules.Where(kvp => enabledBehaviors.Contains(kvp.Key)).ToList();
                 
-                // 5. ÖğÌõµ÷ÓÃ AddEntry
+                result.TotalRules = rulesToInject.Count;
+                
+                Log.Message($"[RimTalk-ExpandActions] å‡†å¤‡æ³¨å…¥ {result.TotalRules} æ¡è¡Œä¸ºè§„åˆ™ï¼ˆå·²å¯ç”¨ï¼‰...");
+                
+                // 7. é€æ¡åˆ›å»º CommonKnowledgeEntry å¹¶è°ƒç”¨ AddEntry
                 int successCount = 0;
                 var descriptions = GetRuleDescriptions();
                 
-                foreach (var ruleKvp in allRules)
+                // è·å– KeywordMatchMode æšä¸¾ç±»å‹
+                Type matchModeType = FindType("RimTalk.Memory.KeywordMatchMode");
+                
+                foreach (var ruleKvp in rulesToInject)
                 {
                     var rule = ruleKvp.Value;
                     
                     try
                     {
-                        // ÇåÀí¹æÔòÄÚÈİ
+                        // æ¸…ç†è§„åˆ™å†…å®¹
                         string cleanContent = CleanRuleContent(rule.Content);
                         
-                        // ¸ñÊ½: [±êÇ©|ÖØÒª¶È]ÄÚÈİ
-                        string tag = $"[{rule.Tag}|{rule.Importance:F1}]";
-                        string fullContent = tag + cleanContent;
+                        bool success = false;
                         
-                        // µ÷ÓÃ AddEntry(tag, content)
-                        addEntryMethod.Invoke(null, new object[] { rule.Id, fullContent });
+                        // æ–¹å¼1: å¦‚æœ AddEntry æ¥å— CommonKnowledgeEntry
+                        if (addEntryMethod.GetParameters()[0].ParameterType == entryType)
+                        {
+                            // åˆ›å»º CommonKnowledgeEntry å®ä¾‹
+                            object entry = Activator.CreateInstance(entryType);
+                            
+                            // è®¾ç½®å±æ€§
+                            entryType.GetField("id")?.SetValue(entry, rule.Id);
+                            entryType.GetField("tag")?.SetValue(entry, rule.Tag);
+                            entryType.GetField("content")?.SetValue(entry, cleanContent);
+                            entryType.GetField("importance")?.SetValue(entry, rule.Importance);
+                            entryType.GetField("isEnabled")?.SetValue(entry, true);
+                            
+                            // è®¾ç½® keywords
+                            if (rule.Keywords != null && rule.Keywords.Length > 0)
+                            {
+                                var keywordsField = entryType.GetField("keywords");
+                                if (keywordsField != null)
+                                {
+                                    var keywordsList = new List<string>(rule.Keywords);
+                                    keywordsField.SetValue(entry, keywordsList);
+                                }
+                            }
+                            
+                            // è®¾ç½® matchMode
+                            if (matchModeType != null)
+                            {
+                                var matchModeField = entryType.GetField("matchMode");
+                                if (matchModeField != null)
+                                {
+                                    object matchMode = Enum.Parse(matchModeType, "Any");
+                                    matchModeField.SetValue(entry, matchMode);
+                                }
+                            }
+                            
+                            // è°ƒç”¨ AddEntry
+                            addEntryMethod.Invoke(commonKnowledge, new object[] { entry });
+                            success = true;
+                        }
+                        // æ–¹å¼2: å¦‚æœ AddEntry æ¥å— (string, string)
+                        else
+                        {
+                            addEntryMethod.Invoke(commonKnowledge, new object[] { rule.Tag, cleanContent });
+                            success = true;
+                        }
                         
-                        successCount++;
-                        result.InjectedRuleNames.Add(ruleKvp.Key);
-                        
-                        Log.Message($"[RimTalk-ExpandActions]   ? ÒÑ×¢Èë: {rule.Id}");
+                        if (success)
+                        {
+                            successCount++;
+                            result.InjectedRuleNames.Add(ruleKvp.Key);
+                            Log.Message($"[RimTalk-ExpandActions]   âœ“ å·²æ³¨å…¥: {rule.Id}");
+                        }
                     }
                     catch (Exception ex)
                     {
-                        Log.Warning($"[RimTalk-ExpandActions]   ? ×¢ÈëÊ§°Ü {rule.Id}: {ex.Message}");
+                        result.FailedRules++;
+                        result.FailedRuleNames.Add(ruleKvp.Key);
+                        result.FailureReasons[ruleKvp.Key] = ex.InnerException?.Message ?? ex.Message;
+                        Log.Warning($"[RimTalk-ExpandActions]   âœ— æ³¨å…¥å¤±è´¥ {rule.Id}: {ex.InnerException?.Message ?? ex.Message}");
                     }
                 }
                 
-                // 6. ´¦Àí½á¹û
+                // 7. å¤„ç†ç»“æœ
                 result.InjectedRules = successCount;
                 result.Success = successCount > 0;
                 
                 if (result.Success)
                 {
-                    Log.Message("[RimTalk-ExpandActions] ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T");
-                    Log.Message($"[RimTalk-ExpandActions] ??? ³É¹¦×¢Èë {successCount} Ìõ¹æÔòµ½µ±Ç°´æµµ ???");
-                    Log.Message("[RimTalk-ExpandActions] ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T");
+                    Log.Message("[RimTalk-ExpandActions] â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+                    Log.Message($"[RimTalk-ExpandActions] âœ“ æˆåŠŸæ³¨å…¥ {successCount}/{result.TotalRules} æ¡è§„åˆ™åˆ°å½“å‰å­˜æ¡£");
+                    Log.Message("[RimTalk-ExpandActions] â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+                    
+                    var ruleDescMap = new Dictionary<string, string>
+                    {
+                        { "expand-action-recruit", "æ‹›å‹Ÿç³»ç»Ÿ" },
+                        { "expand-action-social-dining", "ç¤¾äº¤ç”¨é¤" },
+                        { "expand-action-drop-weapon", "æŠ•é™ç³»ç»Ÿ" },
+                        { "expand-action-romance", "æ‹çˆ±å…³ç³»" },
+                        { "expand-action-inspiration", "çµæ„Ÿè§¦å‘" },
+                        { "expand-action-rest", "å¼ºåˆ¶ä¼‘æ¯" },
+                        { "expand-action-gift", "èµ é€ç‰©å“" },
+                        { "expand-action-social-relax", "ç¤¾äº¤æ”¾æ¾" }
+                    };
                     
                     foreach (var ruleName in result.InjectedRuleNames)
                     {
-                        if (descriptions.ContainsKey(ruleName))
+                        if (ruleDescMap.ContainsKey(ruleName))
                         {
-                            Log.Message($"[RimTalk-ExpandActions]   ? {ruleName}: {descriptions[ruleName]}");
+                            Log.Message($"[RimTalk-ExpandActions]   â€¢ {ruleDescMap[ruleName]}: {descriptions[ruleDescMap[ruleName]]}");
+                        }
+                    }
+                    
+                    if (result.FailedRules > 0)
+                    {
+                        Log.Warning($"[RimTalk-ExpandActions] âš  {result.FailedRules} æ¡è§„åˆ™æ³¨å…¥å¤±è´¥");
+                        foreach (var failedRule in result.FailedRuleNames)
+                        {
+                            string reason = result.FailureReasons.ContainsKey(failedRule) ? result.FailureReasons[failedRule] : "æœªçŸ¥åŸå› ";
+                            Log.Warning($"[RimTalk-ExpandActions]     - {failedRule}: {reason}");
                         }
                     }
                 }
                 else
                 {
-                    result.ErrorMessage = "×¢ÈëÍê³Éµ«Ã»ÓĞ¹æÔòÌí¼Ó";
+                    result.ErrorMessage = "æ³¨å…¥å®Œæˆä½†æ²¡æœ‰è§„åˆ™æ·»åŠ ";
                     Log.Warning($"[RimTalk-ExpandActions] {result.ErrorMessage}");
                 }
             }
             catch (Exception ex)
             {
-                result.ErrorMessage = $"×¢ÈëÊ§°Ü: {ex.Message}";
+                result.ErrorMessage = $"æ³¨å…¥å¤±è´¥: {ex.Message}";
                 Log.Error($"[RimTalk-ExpandActions] {result.ErrorMessage}");
-                Log.Error($"[RimTalk-ExpandActions] ¶ÑÕ»¸ú×Ù:\n{ex.StackTrace}");
+                Log.Error($"[RimTalk-ExpandActions] å †æ ˆè·Ÿè¸ª:\n{ex.StackTrace}");
             }
             
             return result;
         }
 
         /// <summary>
-        /// ¼ì²é³£Ê¶¿â×´Ì¬
+        /// æ£€æŸ¥å¸¸è¯†åº“çŠ¶æ€
         /// </summary>
         public static string CheckStatus()
         {
@@ -210,36 +544,50 @@ namespace RimTalkExpandActions.Memory.Utils
             {
                 if (Current.Game == null || Find.World == null)
                 {
-                    return "? Î´¼ÓÔØÓÎÏ·´æµµ";
+                    return "æœªåŠ è½½æ¸¸æˆå­˜æ¡£";
                 }
                 
                 Type commonKnowledgeType = FindType("RimTalk.Memory.CommonKnowledgeLibrary");
                 if (commonKnowledgeType == null)
                 {
-                    return "? Î´ÕÒµ½ RimTalk-ExpandMemory";
+                    return "æœªæ‰¾åˆ° RimTalk-ExpandMemory";
                 }
                 
-                // ¼ì²é¾²Ì¬·½·¨ÊÇ·ñ´æÔÚ
-                MethodInfo addEntryMethod = commonKnowledgeType.GetMethod(
-                    "AddEntry",
+                // æ£€æŸ¥æ–°ç‰ˆ API
+                MethodInfo addKnowledgeExMethod = commonKnowledgeType.GetMethod(
+                    "AddKnowledgeEx",
                     BindingFlags.Public | BindingFlags.Static
                 );
                 
-                if (addEntryMethod == null)
+                if (addKnowledgeExMethod != null)
                 {
-                    return "? AddEntry ·½·¨²»´æÔÚ";
+                    return "âœ“ RimTalk-ExpandMemory v4.0+ å·²å°±ç»ª";
                 }
                 
-                return "? RimTalk-ExpandMemory ÒÑ¾ÍĞ÷";
+                // æ£€æŸ¥æ—§ç‰ˆ API
+                MethodInfo addKnowledgeMethod = commonKnowledgeType.GetMethod(
+                    "AddKnowledge",
+                    BindingFlags.Public | BindingFlags.Static
+                );
+                
+                if (addKnowledgeMethod != null)
+                {
+                    return "âœ“ RimTalk-ExpandMemory (å…¼å®¹æ¨¡å¼) å·²å°±ç»ª";
+                }
+                
+                return "âš  API æ–¹æ³•ä¸å­˜åœ¨";
             }
             catch (Exception ex)
             {
-                return $"? ¼ì²éÊ§°Ü: {ex.Message}";
+                return $"âœ— æ£€æŸ¥å¤±è´¥: {ex.Message}";
             }
         }
 
-        #region ¸¨Öú·½·¨
+        #region è¾…åŠ©æ–¹æ³•
 
+        /// <summary>
+        /// æŸ¥æ‰¾ç±»å‹ï¼ˆè·¨ç¨‹åºé›†ï¼‰
+        /// </summary>
         private static Type FindType(string fullTypeName)
         {
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
@@ -254,25 +602,25 @@ namespace RimTalkExpandActions.Memory.Utils
         }
 
         /// <summary>
-        /// ÇåÀí¹æÔòÄÚÈİ£ºÒÆ³ı»»ĞĞ·ûºÍ¶àÓà±êµã·ûºÅ
+        /// æ¸…ç†è§„åˆ™å†…å®¹ï¼šç§»é™¤æ¢è¡Œç¬¦å’Œå¤šä½™ç©ºæ ¼
         /// </summary>
         private static string CleanRuleContent(string content)
         {
             if (string.IsNullOrEmpty(content))
                 return content;
             
-            // 1. ÒÆ³ıËùÓĞÀàĞÍµÄ»»ĞĞ·û
+            // 1. ç§»é™¤æ‰€æœ‰ç±»å‹çš„æ¢è¡Œç¬¦
             content = content.Replace("\r\n", " ");
             content = content.Replace("\r", " ");
             content = content.Replace("\n", " ");
             
-            // 2. ÒÆ³ı¶àÓàµÄ¿Õ¸ñ£¨Á¬Ğø¿Õ¸ñÌæ»»Îªµ¥¸ö¿Õ¸ñ£©
+            // 2. ç§»é™¤å¤šä½™çš„ç©ºæ ¼ï¼ˆè¿ç»­ç©ºæ ¼æ›¿æ¢ä¸ºå•ä¸ªç©ºæ ¼ï¼‰
             while (content.Contains("  "))
             {
                 content = content.Replace("  ", " ");
             }
             
-            // 3. ÒÆ³ı×Ö·û´®¿ªÍ·ºÍ½áÎ²µÄ¿Õ¸ñ
+            // 3. ç§»é™¤å­—ç¬¦ä¸²å¼€å¤´å’Œç»“å°¾çš„ç©ºæ ¼
             content = content.Trim();
             
             return content;

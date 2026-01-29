@@ -6,20 +6,20 @@ using RimTalkExpandActions.SocialDining;
 namespace RimTalkExpandActions.Patches
 {
     /// <summary>
-    /// Éç½»ÓÃ²ÍÏà¹ØµÄ Harmony ²¹¶¡
-    /// ·ÀÖ¹¹²ÏíÊ³Îï±»ÒâÍâÏú»Ù
+    /// ç¤¾äº¤ç”¨é¤ç›¸å…³çš„ Harmony è¡¥ä¸
+    /// é˜²æ­¢å…±äº«é£Ÿç‰©è¢«æå‰é”€æ¯
     /// </summary>
     [HarmonyPatch]
     public static class SocialDiningPatches
     {
         /// <summary>
-        /// ºËĞÄ²¹¶¡£º·ÀÖ¹Ê³ÎïÔÚ±»¶àÈË¹²ÏíÊ±±»ÒâÍâÏú»Ù
+        /// é”€æ¯è¡¥ä¸ï¼šé˜²æ­¢é£Ÿç‰©åœ¨è¢«å¤šäººå…±äº«æ—¶è¢«æå‰é”€æ¯
         /// 
-        /// ³¡¾°£ºA ºÍ B Í¬Ê±³ÔÒ»·İÊ³Îï
-        /// - A ³ÔÍêºóÏëÏú»ÙÊ³Îï
-        /// - µ« B »¹Ã»³ÔÍê
-        /// - ´Ë²¹¶¡·µ»Ø false ×èÖ¹Ïú»Ù
-        /// - Ö±µ½ B Ò²³ÔÍê£¨B ÊÇ×îºóÒ»¸öÓÃ²ÍÕß£©²ÅÕæÕıÏú»Ù
+        /// åœºæ™¯ï¼šA å’Œ B åŒæ—¶åƒä¸€ä¸ªé£Ÿç‰©
+        /// - A åƒå®Œæƒ³é”€æ¯é£Ÿç‰©
+        /// - ä½† B è¿˜æ²¡åƒå®Œ
+        /// - æ­¤è¡¥ä¸è¿”å› false é˜»æ­¢é”€æ¯
+        /// - ç›´åˆ° B ä¹Ÿåƒå®Œï¼ˆB æˆä¸ºæœ€åä¸€ä¸ªç”¨é¤è€…ï¼‰æ‰å…è®¸é”€æ¯
         /// </summary>
         [HarmonyPatch(typeof(Thing), "Destroy")]
         public static class Patch_Thing_Destroy
@@ -27,29 +27,51 @@ namespace RimTalkExpandActions.Patches
             [HarmonyPrefix]
             public static bool Prefix(Thing __instance, DestroyMode mode)
             {
-                // Ö»¼ì²é¿ÉÊ³ÓÃÎïÆ·
-                if (__instance.def.IsIngestible)
+                try
                 {
-                    SharedFoodTracker tracker = __instance.TryGetComp<SharedFoodTracker>();
-                    if (tracker != null && tracker.IsBeingShared && tracker.ActiveEatersCount > 0)
+                    // å®‰å…¨æ£€æŸ¥ï¼šç¡®ä¿å®ä¾‹å’Œå®šä¹‰æœ‰æ•ˆ
+                    if (__instance == null) return true;
+                    if (__instance.def == null) return true;
+                    
+                    // æ£€æŸ¥æ˜¯å¦å·²é”€æ¯æˆ–æ­£åœ¨é”€æ¯
+                    if (__instance.Destroyed) return true;
+                    
+                    // åªå¤„ç†é£Ÿç‰©ç‰©å“
+                    if (!__instance.def.IsIngestible) return true;
+                    
+                    // æ£€æŸ¥æ˜¯å¦æœ‰ comps
+                    var thingWithComps = __instance as ThingWithComps;
+                    if (thingWithComps == null) return true;
+                    if (thingWithComps.AllComps == null) return true;
+                    
+                    // å°è¯•è·å– SharedFoodTracker
+                    SharedFoodTracker tracker = thingWithComps.TryGetComp<SharedFoodTracker>();
+                    if (tracker == null) return true;
+                    
+                    // æ£€æŸ¥æ˜¯å¦æ­£åœ¨è¢«å…±äº«
+                    if (tracker.IsBeingShared && tracker.ActiveEatersCount > 0)
                     {
-                        // ·ÀÖ¹Ïú»Ù - »¹ÓĞÈËÔÚ³Ô
+                        // é˜»æ­¢é”€æ¯ - è¿˜æœ‰äººåœ¨åƒ
                         if (RimTalkExpandActionsMod.Settings?.enableDetailedLogging == true)
                         {
-                            Log.Warning($"[SocialDiningPatches] ×èÖ¹Ïú»Ù¹²ÏíÊ³Îï {__instance.Label}£¬" +
-                                       $"»¹ÓĞ {tracker.ActiveEatersCount} ¸öÓÃ²ÍÕß");
+                            Log.Warning($"[SocialDiningPatches] é˜»æ­¢é”€æ¯å…±äº«é£Ÿç‰© {__instance.Label}ï¼Œ" +
+                                       $"è¿˜æœ‰ {tracker.ActiveEatersCount} ä¸ªç”¨é¤è€…");
                         }
-                        return false; // ·µ»Ø false ×èÖ¹Ïú»Ù
+                        return false; // è¿”å› false é˜»æ­¢é”€æ¯
                     }
                 }
+                catch
+                {
+                    // å¿½ç•¥å¼‚å¸¸ï¼Œç¡®ä¿ä¸å½±å“æ­£å¸¸é”€æ¯æµç¨‹
+                }
 
-                return true; // ÔÊĞíÕı³£Ïú»Ù
+                return true; // å…è®¸æ­£å¸¸é”€æ¯
             }
         }
 
         /// <summary>
-        /// ÓÅ»¯²¹¶¡£º·ÀÖ¹¹²ÏíÊ³Îï±»ÆäËûĞ¡ÈËÑ¡È¡
-        /// Èç¹ûÊ³ÎïÒÑ¾­±»Á½ÈËÊ¹ÓÃ£¬²»ÈÃµÚÈıÕßÑ¡È¡
+        /// ä¼˜åŒ–è¡¥ä¸ï¼šé˜²æ­¢å…±äº«é£Ÿç‰©è¢«å…¶ä»–å°äººé€‰å–
+        /// è‹¥é£Ÿç‰©å·²ç»è¢«å¤šäººä½¿ç”¨ï¼Œé™ä½å…¶è¢«é€‰å–ä¼˜å…ˆçº§
         /// </summary>
         [HarmonyPatch(typeof(FoodUtility), "BestFoodSourceOnMap")]
         public static class Patch_FoodUtility_BestFoodSourceOnMap
@@ -57,20 +79,37 @@ namespace RimTalkExpandActions.Patches
             [HarmonyPostfix]
             public static void Postfix(Pawn getter, ref Thing __result)
             {
-                // Èç¹ûÑ¡ÖĞµÄÊ³ÎïÕıÔÚ±»¹²Ïí£¬ÅÅ³ıËü
-                if (__result != null && __result.def.IsIngestible)
+                try
                 {
-                    SharedFoodTracker tracker = __result.TryGetComp<SharedFoodTracker>();
-                    if (tracker != null && tracker.ActiveEatersCount >= 2)
+                    // å®‰å…¨æ£€æŸ¥
+                    if (__result == null) return;
+                    if (__result.def == null) return;
+                    if (!__result.def.IsIngestible) return;
+                    if (__result.Destroyed) return;
+                    
+                    // æ£€æŸ¥æ˜¯å¦æœ‰ comps
+                    var thingWithComps = __result as ThingWithComps;
+                    if (thingWithComps == null) return;
+                    if (thingWithComps.AllComps == null) return;
+                    
+                    // å°è¯•è·å– SharedFoodTracker
+                    SharedFoodTracker tracker = thingWithComps.TryGetComp<SharedFoodTracker>();
+                    if (tracker == null) return;
+                    
+                    // è‹¥é£Ÿç‰©å·²ç»è¢«å¤šäººä½¿ç”¨ï¼Œä¸å†æä¾›ç»™å…¶ä»–äºº
+                    if (tracker.ActiveEatersCount >= 2)
                     {
-                        // ´ËÊ³ÎïÒÑ¾­±»Á½ÈËÊ¹ÓÃ£¬²»ÔÙÌá¹©¸øµÚÈıÕß
                         if (RimTalkExpandActionsMod.Settings?.enableDetailedLogging == true)
                         {
-                            Log.Message($"[SocialDiningPatches] ÅÅ³ıÒÑ¹²ÏíµÄÊ³Îï {__result.Label}£¬" +
-                                       $"µ±Ç°ÓĞ {tracker.ActiveEatersCount} ¸öÓÃ²ÍÕß");
+                            Log.Message($"[SocialDiningPatches] æ’é™¤å·²å…±äº«çš„é£Ÿç‰© {__result.Label}ï¼Œ" +
+                                       $"å½“å‰æœ‰ {tracker.ActiveEatersCount} ä¸ªç”¨é¤è€…");
                         }
                         __result = null;
                     }
+                }
+                catch
+                {
+                    // å¿½ç•¥å¼‚å¸¸
                 }
             }
         }

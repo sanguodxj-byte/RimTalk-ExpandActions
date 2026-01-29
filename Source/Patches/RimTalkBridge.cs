@@ -3,12 +3,13 @@ using System.Reflection;
 using HarmonyLib;
 using Verse;
 using RimTalkExpandActions.Memory;
+using RimTalkExpandActions.Memory.AI;
 
 namespace RimTalkExpandActions.Patches
 {
     /// <summary>
-    /// RimTalk ¶Ô»°ÇÅ½Ó²¹¶¡
-    /// Ê¹ÓÃ·´Éä¶¯Ì¬ Patch RimTalk µÄ¶Ô»°·½·¨£¬±ÜÃâÓ²ÒÀÀµ
+    /// RimTalk ï¿½Ô»ï¿½ï¿½Å½Ó²ï¿½ï¿½ï¿½
+    /// Ê¹ï¿½Ã·ï¿½ï¿½ä¶¯Ì¬ Patch RimTalk ï¿½Ä¶Ô»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó²ï¿½ï¿½ï¿½ï¿½
     /// </summary>
     [HarmonyPatch]
     public static class RimTalkBridge
@@ -18,43 +19,43 @@ namespace RimTalkExpandActions.Patches
         private static bool isRimTalkAvailable = false;
 
         /// <summary>
-        /// ×¼±¸½×¶Î£º¼ì²é RimTalk ÊÇ·ñ´æÔÚ
+        /// ×¼ï¿½ï¿½ï¿½×¶Î£ï¿½ï¿½ï¿½ï¿½ RimTalk ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
         /// </summary>
         static bool Prepare()
         {
             try
             {
-                // ²éÕÒ RimTalk.Service.TalkService ÀàĞÍ
+                // ï¿½ï¿½ï¿½ï¿½ RimTalk.Service.TalkService ï¿½ï¿½ï¿½ï¿½
                 rimTalkServiceType = AccessTools.TypeByName("RimTalk.Service.TalkService");
                 
                 if (rimTalkServiceType == null)
                 {
-                    Log.Message("[RimTalk-ExpandActions] RimTalk Mod Î´°²×°£¬Ìø¹ı¶Ô»°ÇÅ½Ó²¹¶¡");
+                    Log.Message("[RimTalk-ExpandActions] RimTalk Mod Î´ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô»ï¿½ï¿½Å½Ó²ï¿½ï¿½ï¿½");
                     return false;
                 }
 
-                // ²éÕÒ GetTalk ·½·¨ (public static string GetTalk(Pawn pawn))
+                // ï¿½ï¿½ï¿½ï¿½ GetTalk ï¿½ï¿½ï¿½ï¿½ (public static string GetTalk(Pawn pawn))
                 targetMethod = AccessTools.Method(rimTalkServiceType, "GetTalk", new Type[] { typeof(Pawn) });
                 
                 if (targetMethod == null)
                 {
-                    Log.Error("[RimTalk-ExpandActions] Î´ÕÒµ½ GetTalk ·½·¨");
+                    Log.Error("[RimTalk-ExpandActions] Î´ï¿½Òµï¿½ GetTalk ï¿½ï¿½ï¿½ï¿½");
                     return false;
                 }
 
                 isRimTalkAvailable = true;
-                Log.Message($"[RimTalk-ExpandActions] ³É¹¦ÕÒµ½ RimTalk ¶Ô»°·½·¨: {targetMethod.Name}");
+                Log.Message($"[RimTalk-ExpandActions] ï¿½É¹ï¿½ï¿½Òµï¿½ RimTalk ï¿½Ô»ï¿½ï¿½ï¿½ï¿½ï¿½: {targetMethod.Name}");
                 return true;
             }
             catch (Exception ex)
             {
-                Log.Error($"[RimTalk-ExpandActions] RimTalkBridge.Prepare Ê§°Ü: {ex.Message}\n{ex.StackTrace}");
+                Log.Error($"[RimTalk-ExpandActions] RimTalkBridge.Prepare Ê§ï¿½ï¿½: {ex.Message}\n{ex.StackTrace}");
                 return false;
             }
         }
 
         /// <summary>
-        /// Ö¸¶¨Ä¿±ê·½·¨
+        /// Ö¸ï¿½ï¿½Ä¿ï¿½ê·½ï¿½ï¿½
         /// </summary>
         static MethodBase TargetMethod()
         {
@@ -62,8 +63,8 @@ namespace RimTalkExpandActions.Patches
         }
 
         /// <summary>
-        /// ºóÖÃ²¹¶¡£º´¦Àí·µ»ØµÄ¶Ô»°ÎÄ±¾
-        /// GetTalk ·½·¨Ç©Ãû: public static string GetTalk(Pawn pawn)
+        /// åç½®è¡¥ä¸ï¼šå¤„ç†è¿”å›çš„å¯¹è¯æ–‡æœ¬
+        /// GetTalk æ–¹æ³•ç­¾å: public static string GetTalk(Pawn pawn)
         /// </summary>
         static void Postfix(Pawn pawn, ref string __result)
         {
@@ -74,33 +75,82 @@ namespace RimTalkExpandActions.Patches
                     return;
                 }
 
-                // ¼ì²éÊÇ·ñ°üº¬ JSON Ö¸Áî
-                if (!__result.Contains("{\"action\"") && !__result.Contains("{ \"action\""))
+                string originalResult = __result;
+                bool processed = false;
+
+                Log.Message($"[RimTalkBridge] å¼€å§‹åˆ†æAIå›å¤: {__result.Substring(0, Math.Min(80, __result.Length))}...");
+                
+                // ã€ä¼˜å…ˆçº§1ã€‘æ£€æµ‹å¹¶å¤„ç† XML æ ‡ç­¾ - æ ‡ç­¾å­˜åœ¨æ—¶ç›´æ¥è§¦å‘è¡Œä¸º
+                if (LLMTagParser.ContainsTag(__result))
                 {
-                    return;
+                    var parseResult = LLMTagParser.Parse(__result);
+                    if (parseResult.Success)
+                    {
+                        Log.Message($"[RimTalkBridge] â˜… æ£€æµ‹åˆ°æ ‡ç­¾: <{parseResult.TagType}>{parseResult.TagValue}</{parseResult.TagType}>");
+                        
+                        // ç›´æ¥è§¦å‘è¡Œä¸º
+                        var triggerResult = LLMActionTrigger.TriggerAction(parseResult, pawn, null);
+                        if (triggerResult.Success)
+                        {
+                            Log.Message($"[RimTalkBridge] â˜…â˜…â˜… æ ‡ç­¾è§¦å‘æˆåŠŸ: {triggerResult.Message}");
+                        }
+                        else
+                        {
+                            Log.Warning($"[RimTalkBridge] æ ‡ç­¾è§¦å‘å¤±è´¥: {triggerResult.Message}");
+                        }
+                        
+                        // æ¸…æ´—æ ‡ç­¾
+                        __result = LLMTagParser.RemoveTags(__result);
+                        processed = true;
+                    }
+                }
+                
+                // ã€ä¼˜å…ˆçº§2ã€‘æ²¡æœ‰æ ‡ç­¾æ—¶ï¼Œä½¿ç”¨æœ¬åœ°NLUåˆ†æ
+                if (!processed)
+                {
+                    var hybridResult = HybridIntentRecognizer.RecognizeIntent(
+                        "",  // userInput - è¿™é‡Œæ— æ³•è·å–
+                        __result,
+                        pawn,  // speaker (è¯´è¯è€…æ˜¯AIè§’è‰²)
+                        null   // listener
+                    );
+                    
+                    if (hybridResult.Success)
+                    {
+                        Log.Message($"[RimTalkBridge] â˜… NLUè¯†åˆ«æˆåŠŸ: {hybridResult.IntentName} (æ¥æº: {hybridResult.Source}, ç½®ä¿¡åº¦: {hybridResult.Confidence:F2})");
+                        Log.Message($"[RimTalkBridge] å¤„ç†ç»“æœ: {hybridResult.Message}");
+                        processed = true;
+                    }
+                    else if (RimTalkExpandActionsMod.Settings?.enableDetailedLogging == true)
+                    {
+                        Log.Message($"[RimTalkBridge] NLUæœªåŒ¹é…: {hybridResult.Message}");
+                    }
                 }
 
-                // ´¦Àí AI »Ø¸´ - pawn ÊÇËµ»°Õß£¨¶Ô»°Ä¿±ê£©
-                string cleanText = AIResponsePostProcessor.ProcessActionResponse(__result, pawn, null);
-
-                // ¸üĞÂ·µ»ØÖµ
-                __result = cleanText;
-
-                if (RimTalkExpandActionsMod.Settings?.enableDetailedLogging == true)
+                // æ¸…æ´— JSON æ ¼å¼ï¼ˆå…¼å®¹æ—§æ ¼å¼ï¼‰
+                if (__result.Contains("{\"action\"") || __result.Contains("{ \"action\""))
                 {
-                    Log.Message($"[RimTalk-ExpandActions] ¶Ô»°ÒÑ´¦Àí: {pawn.Name.ToStringShort}");
-                    Log.Message($"[RimTalk-ExpandActions] Ô­Ê¼: {__result}");
-                    Log.Message($"[RimTalk-ExpandActions] ÇåÀí: {cleanText}");
+                    // å¤„ç† AI å›å¤ - pawn æ˜¯è¯´è¯è€…ï¼ˆå¯¹è¯ç›®æ ‡ï¼‰
+                    string cleanText = AIResponsePostProcessor.ProcessActionResponse(__result, pawn, null);
+                    __result = cleanText;
+                    processed = true;
+                }
+
+                if (processed && RimTalkExpandActionsMod.Settings?.enableDetailedLogging == true)
+                {
+                    Log.Message($"[RimTalkBridge] å¯¹è¯å·²å¤„ç†: {pawn.Name.ToStringShort}");
+                    Log.Message($"[RimTalkBridge] åŸå§‹: {originalResult.Substring(0, Math.Min(100, originalResult.Length))}");
+                    Log.Message($"[RimTalkBridge] æ¸…æ´—: {__result}");
                 }
             }
             catch (Exception ex)
             {
-                Log.Error($"[RimTalk-ExpandActions] RimTalkBridge.Postfix Ö´ĞĞÊ§°Ü: {ex.Message}\n{ex.StackTrace}");
+                Log.Error($"[RimTalkBridge] Postfix æ‰§è¡Œå¤±è´¥: {ex.Message}\n{ex.StackTrace}");
             }
         }
 
         /// <summary>
-        /// »ñÈ¡ RimTalk ÊÇ·ñ¿ÉÓÃ
+        /// ï¿½ï¿½È¡ RimTalk ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
         /// </summary>
         public static bool IsRimTalkAvailable => isRimTalkAvailable;
     }

@@ -12,21 +12,21 @@ namespace RimTalkExpandActions.SocialDining
         private const float FoodSearchRadius = 45f;
         private const float TableSearchRadius = 40f;
 
-        #region ºËÐÄ·½·¨ - ´¥·¢¹²²Í
+        #region ï¿½ï¿½ï¿½Ä·ï¿½ï¿½ï¿½ - ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         /// <summary>
-        /// ´¥·¢¹²²ÍÐÐÎª - ´ÓÔ´ Mod ÒÆÖ²µÄºËÐÄ·½·¨
-        /// °üº¬ÍêÕûµÄ¶àÈËÔ¤Áô¼ì²éºÍÈÎÎñ´´½¨Âß¼­
+        /// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª - ï¿½ï¿½Ô´ Mod ï¿½ï¿½Ö²ï¿½Äºï¿½ï¿½Ä·ï¿½ï¿½ï¿½
+        /// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ñ´´½ï¿½ï¿½ß¼ï¿½
         /// </summary>
         public static bool TryTriggerShareFood(Pawn initiator, Pawn recipient, Thing food)
         {
             if (initiator == null || recipient == null || food == null)
             {
-                Log.Warning("[SocialDining] TryTriggerShareFood: ²ÎÊýÎÞÐ§");
+                Log.Warning("[SocialDining] TryTriggerShareFood: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§");
                 return false;
             }
 
-            // Step 1: µôÂäÊ³Îï£¨Èç¹û·¢ÆðÕß³ÖÓÐ£©
+            // Step 1: ï¿½ï¿½ï¿½ï¿½Ê³ï¿½ï£¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß³ï¿½ï¿½Ð£ï¿½
             Thing foodToDrop = null;
             if (initiator.carryTracker?.CarriedThing == food)
             {
@@ -36,25 +36,25 @@ namespace RimTalkExpandActions.SocialDining
                 }
                 else
                 {
-                    Log.Warning("[SocialDining] ÎÞ·¨·ÅÏÂÊ³Îï");
+                    Log.Warning("[SocialDining] ï¿½Þ·ï¿½ï¿½ï¿½ï¿½ï¿½Ê³ï¿½ï¿½");
                     return false;
                 }
             }
 
-            // Step 2: ¼ì²éÊ³ÎïÊÇ·ñÓÐÐ§
+            // Step 2: ï¿½ï¿½ï¿½Ê³ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Ð§
             if (food == null || food.Destroyed || !food.Spawned)
             {
-                Log.Warning("[SocialDining] Ê³ÎïÎÞÐ§»òÒÑ±»Ïú»Ù");
+                Log.Warning("[SocialDining] Ê³ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½Ñ±ï¿½ï¿½ï¿½ï¿½ï¿½");
                 return false;
             }
 
-            // Step 3: ¶àÈËÔ¤Áô¼ì²é£¨ºËÐÄÂß¼­£©
+            // Step 3: ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½é£¨ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½
             if (!initiator.CanReserve(food, 1, -1, null, false))
             {
                 Pawn reserver = initiator.Map?.reservationManager?.FirstRespectedReserver(food, initiator);
                 if (reserver != recipient)
                 {
-                    Log.Warning($"[SocialDining] {initiator.LabelShort} ÎÞ·¨Ô¤ÁôÊ³Îï (ÒÑ±» {reserver?.LabelShort ?? "Î´Öª"} Ô¤Áô)");
+                    Log.Warning($"[SocialDining] {initiator.LabelShort} ï¿½Þ·ï¿½Ô¤ï¿½ï¿½Ê³ï¿½ï¿½ (ï¿½Ñ±ï¿½ {reserver?.LabelShort ?? "Î´Öª"} Ô¤ï¿½ï¿½)");
                     return false;
                 }
             }
@@ -64,32 +64,32 @@ namespace RimTalkExpandActions.SocialDining
                 Pawn reserver = recipient.Map?.reservationManager?.FirstRespectedReserver(food, recipient);
                 if (reserver != initiator)
                 {
-                    Log.Warning($"[SocialDining] {recipient.LabelShort} ÎÞ·¨Ô¤ÁôÊ³Îï (ÒÑ±» {reserver?.LabelShort ?? "Î´Öª"} Ô¤Áô)");
+                    Log.Warning($"[SocialDining] {recipient.LabelShort} ï¿½Þ·ï¿½Ô¤ï¿½ï¿½Ê³ï¿½ï¿½ (ï¿½Ñ±ï¿½ {reserver?.LabelShort ?? "Î´Öª"} Ô¤ï¿½ï¿½)");
                     return false;
                 }
             }
 
-            // Step 4: ²éÕÒ²Í×À»òÒ°²ÍµØµã
+            // Step 4: ï¿½ï¿½ï¿½Ò²ï¿½ï¿½ï¿½ï¿½ï¿½Ò°ï¿½ÍµØµï¿½
             Building table = TryFindTableForTwo(initiator.Map, initiator, recipient, TableSearchRadius);
             
-            // Step 5: ´´½¨ÈÎÎñ
+            // Step 5: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             Job initiatorJob = JobMaker.MakeJob(SocialDiningDefOf.SocialDine, food, table, recipient);
             initiatorJob.count = 1;
 
             Job recipientJob = JobMaker.MakeJob(SocialDiningDefOf.SocialDine, food, table, initiator);
             recipientJob.count = 1;
 
-            // Step 6: Æô¶¯ÈÎÎñ
+            // Step 6: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             if (initiator.jobs.TryTakeOrderedJob(initiatorJob, JobTag.Misc, false))
             {
                 if (RimTalkExpandActionsMod.Settings?.enableDetailedLogging == true)
                 {
-                    Log.Message($"[SocialDining] {initiator.LabelShort} ½ÓÊÜÉç½»¹²²ÍÈÎÎñ");
+                    Log.Message($"[SocialDining] {initiator.LabelShort} ï¿½ï¿½ï¿½ï¿½ï¿½ç½»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
                 }
             }
             else
             {
-                Log.Warning($"[SocialDining] {initiator.LabelShort} ÎÞ·¨½ÓÊÜÉç½»¹²²ÍÈÎÎñ");
+                Log.Warning($"[SocialDining] {initiator.LabelShort} ï¿½Þ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ç½»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
                 return false;
             }
 
@@ -97,12 +97,12 @@ namespace RimTalkExpandActions.SocialDining
             {
                 if (RimTalkExpandActionsMod.Settings?.enableDetailedLogging == true)
                 {
-                    Log.Message($"[SocialDining] {recipient.LabelShort} ½ÓÊÜÉç½»¹²²ÍÈÎÎñ");
+                    Log.Message($"[SocialDining] {recipient.LabelShort} ï¿½ï¿½ï¿½ï¿½ï¿½ç½»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
                 }
             }
             else
             {
-                Log.Warning($"[SocialDining] {recipient.LabelShort} ÎÞ·¨½ÓÊÜÉç½»¹²²ÍÈÎÎñ£¬È¡Ïû·¢ÆðÕßÈÎÎñ");
+                Log.Warning($"[SocialDining] {recipient.LabelShort} ï¿½Þ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ç½»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
                 initiator.jobs.EndCurrentJob(JobCondition.InterruptForced);
                 return false;
             }
@@ -111,8 +111,8 @@ namespace RimTalkExpandActions.SocialDining
         }
 
         /// <summary>
-        /// ²éÕÒÊÊºÏÁ½ÈËµÄ²Í×À
-        /// ´ÓÔ´ Mod ÒÆÖ²
+        /// ï¿½ï¿½ï¿½ï¿½ï¿½Êºï¿½ï¿½ï¿½ï¿½ËµÄ²ï¿½ï¿½ï¿½
+        /// ï¿½ï¿½Ô´ Mod ï¿½ï¿½Ö²
         /// </summary>
         public static Building TryFindTableForTwo(Map map, Pawn pawn1, Pawn pawn2, float maxDistance)
         {
@@ -168,27 +168,27 @@ namespace RimTalkExpandActions.SocialDining
         }
 
         /// <summary>
-        /// ¼ì²éÐ¡ÈËÊÇ·ñ¿ÉÒÔ±»´òÈÅÈ¥¹²²Í
-        /// ´ÓÔ´ Mod ÒÆÖ²
+        /// ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Ô±ï¿½ï¿½ï¿½ï¿½ï¿½È¥ï¿½ï¿½ï¿½ï¿½
+        /// ï¿½ï¿½Ô´ Mod ï¿½ï¿½Ö²
         /// </summary>
         public static bool IsSafeToDisturb(Pawn pawn)
         {
             if (pawn == null || !pawn.Spawned || pawn.Dead)
                 return false;
 
-            // ¼ì²éÊÇ·ñÕ÷ÕÙ
+            // ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
             if (pawn.Drafted)
                 return false;
 
-            // ¼ì²éÊÇ·ñ¾«Éñ±ÀÀ£
+            // ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             if (pawn.InMentalState)
                 return false;
 
-            // ¼ì²éÊÇ·ñÔÚÕ½¶·
+            // ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Õ½ï¿½ï¿½
             if (pawn.mindState?.enemyTarget != null)
                 return false;
 
-            // ¼ì²éÊÇ·ñÔÚÖ´ÐÐ¸ßÓÅÏÈ¼¶ÈÎÎñ
+            // ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Ö´ï¿½Ð¸ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½
             if (pawn.jobs?.curJob != null)
             {
                 if (pawn.jobs.curJob.def == JobDefOf.AttackMelee || 
@@ -203,21 +203,21 @@ namespace RimTalkExpandActions.SocialDining
         }
 
         /// <summary>
-        /// ²éÕÒÊÊºÏ¹²²ÍµÄÊ³Îï
+        /// ï¿½ï¿½ï¿½ï¿½ï¿½ÊºÏ¹ï¿½ï¿½Íµï¿½Ê³ï¿½ï¿½
         /// </summary>
         public static Thing FindFoodForSharing(Pawn pawn1, Pawn pawn2)
         {
             if (pawn1 == null || pawn2 == null)
                 return null;
 
-            // ÓÅÏÈ¼ì²é±³°ü
+            // ï¿½ï¿½ï¿½È¼ï¿½é±³ï¿½ï¿½
             if (TryFindFoodInInventory(pawn1, out Thing food1))
                 return food1;
 
             if (TryFindFoodInInventory(pawn2, out Thing food2))
                 return food2;
 
-            // ÔÚµØÍ¼ÉÏ²éÕÒ
+            // ï¿½Úµï¿½Í¼ï¿½Ï²ï¿½ï¿½ï¿½
             if (TryFindFoodOnMap(pawn1, out Thing food3))
                 return food3;
 
@@ -226,7 +226,7 @@ namespace RimTalkExpandActions.SocialDining
 
         #endregion
 
-        #region ¸¨Öú·½·¨
+        #region ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
         public static SharedFoodTracker TryGetFoodTracker(Thing food)
         {
@@ -291,7 +291,7 @@ namespace RimTalkExpandActions.SocialDining
             }
 
             ThingRequest request = ThingRequest.ForGroup(ThingRequestGroup.FoodSourceNotPlantOrTree);
-            TraverseParms traverseParms = TraverseParms.For(pawn, Danger.Deadly, TraverseMode.ByPawn, false);
+            TraverseParms traverseParms = TraverseParms.For(pawn);
             
             Thing found = GenClosest.ClosestThingReachable(
                 pawn.Position,
@@ -328,7 +328,7 @@ namespace RimTalkExpandActions.SocialDining
                 return false;
             }
 
-            // ¼ì²éÊÇ·ñÒÑ±»ÆäËûÈË¹²Ïí£¨²»ÊÇµ±Ç°Á½ÈË£©
+            // ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Ñ±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½Ç°ï¿½ï¿½ï¿½Ë£ï¿½
             SharedFoodTracker tracker = TryGetFoodTracker(food);
             if (tracker != null && tracker.ActiveEatersCount >= 2)
             {

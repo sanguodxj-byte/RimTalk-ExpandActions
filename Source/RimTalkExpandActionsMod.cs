@@ -1,38 +1,38 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
 using RimWorld;
 using HarmonyLib;
+using RimTalkExpandActions.Memory.AI;
 
 namespace RimTalkExpandActions
 {
-    /// <summary>
-    /// RimTalk-ExpandActions Mod ÷˜¿‡
-    /// </summary>
     public class RimTalkExpandActionsMod : Mod
     {
         public static RimTalkExpandActionsSettings Settings { get; private set; }
-        private static Vector2 scrollPosition;
-        private static bool showBehaviorSettings = false;
-        private static bool showSuccessRateSettings = false;
-
+        
+        private Vector2 scrollPosition = Vector2.zero;
+        
         public RimTalkExpandActionsMod(ModContentPack content) : base(content)
         {
             Settings = GetSettings<RimTalkExpandActionsSettings>();
             
-            // ≥ı ºªØ Harmony ≤π∂°
+            Harmony harmony = new Harmony("sanguo.rimtalk.expandactions");
+            harmony.PatchAll();
+            
             try
             {
-                var harmony = new Harmony("sanguo.rimtalk.expandactions");
-                harmony.PatchAll();
-                Log.Message("[RimTalk-ExpandActions] Harmony ≤π∂°“—”¶”√");
+                Patches.RimTalkDialogPatch.ApplyPatches(harmony);
             }
-            catch (Exception ex)
+            catch { }
+
+            try
             {
-                Log.Error($"[RimTalk-ExpandActions] Harmony ≤π∂° ß∞‹: {ex.Message}\n{ex.StackTrace}");
+                LocalNLUAnalyzer.Initialize();
             }
-            
-            Log.Message("[RimTalk-ExpandActions] Mod “—º”‘ÿ - «Î‘⁄º”‘ÿ¥Êµµ∫ÛÕ®π˝ Mod …Ë÷√ ÷∂Ø◊¢»ÎπÊ‘Ú");
+            catch { }
         }
 
         public override string SettingsCategory()
@@ -44,255 +44,246 @@ namespace RimTalkExpandActions
         {
             try
             {
-                // ¥¥Ω®πˆ∂Ø ”Õº
-                Rect viewRect = new Rect(0f, 0f, inRect.width - 20f, 1200f);
+                float lineHeight = 24f;
+                float gap = 6f;
+                float sectionGap = 12f;
+                float width = inRect.width - 20f;
+                float sliderWidth = width - 200f;
+                
+                // ËÆ°ÁÆóÊªöÂä®Âå∫Âüü
+                float viewHeight = 1600f;
+                Rect viewRect = new Rect(0f, 0f, width, viewHeight);
                 Widgets.BeginScrollView(inRect, ref scrollPosition, viewRect);
                 
-                Listing_Standard listingStandard = new Listing_Standard();
-                listingStandard.Begin(viewRect);
+                float y = 0f;
                 
-                // === ±ÍÃ‚ ===
-                Text.Font = GameFont.Medium;
-                listingStandard.Label("RimTalk-ExpandActions v1.1.0");
-                Text.Font = GameFont.Small;
-                listingStandard.Gap();
+                // ============ ÈÄöÁî®ËÆæÁΩÆ ============
+                Widgets.Label(new Rect(0f, y, width, lineHeight), "== ÈÄöÁî®ËÆæÁΩÆ ==");
+                y += lineHeight + gap;
                 
-                // === »´æ÷…Ë÷√ ===
-                listingStandard.Label("©•©•©• »´æ÷…Ë÷√ ©•©•©•");
-                listingStandard.Gap(6f);
+                Widgets.DrawLineHorizontal(0f, y, width);
+                y += gap;
                 
-                listingStandard.CheckboxLabeled("œ‘ æ––Œ™¥•∑¢œ˚œ¢", ref Settings.showActionMessages,
-                    "‘⁄”Œœ∑÷–œ‘ æ––Œ™¥•∑¢µƒÃ· æœ˚œ¢");
+                Widgets.CheckboxLabeled(new Rect(0f, y, width, lineHeight), "ÊòæÁ§∫Ë°å‰∏∫Ê∂àÊÅØ", ref Settings.showActionMessages);
+                y += lineHeight;
+                Widgets.CheckboxLabeled(new Rect(0f, y, width, lineHeight), "ÂêØÁî®ËØ¶ÁªÜÊó•Âøó", ref Settings.enableDetailedLogging);
+                y += lineHeight + gap;
                 
-                listingStandard.CheckboxLabeled("∆Ù”√œÍœ∏»’÷æ", ref Settings.enableDetailedLogging,
-                    "‘⁄»’÷æ÷–º«¬ºœÍœ∏µƒ÷¥––π˝≥Ã£®”√”⁄µ˜ ‘£©");
-                
-                listingStandard.Gap();
-                
-                // === ≥£ ∂ø‚◊¢»Î ===
-                listingStandard.Label("©•©•©• ≥£ ∂ø‚π‹¿Ì ©•©•©•");
-                listingStandard.Gap(6f);
-                
-                // œ‘ æ◊¥Ã¨
-                string status = Memory.Utils.ExpandMemoryKnowledgeInjector.CheckStatus();
-                GUI.color = status.Contains("?") ? Color.green : Color.yellow;
-                listingStandard.Label($"◊¥Ã¨: {status}");
-                GUI.color = Color.white;
-                listingStandard.Gap(4f);
-                
-                // ◊¢»Î∞¥≈•
-                if (listingStandard.ButtonText("◊¢»ÎπÊ‘ÚµΩµ±«∞¥Êµµ", "Ω´ 7 ÷÷––Œ™πÊ‘Ú◊¢»ÎµΩµ±«∞¥Êµµµƒ≥£ ∂ø‚"))
-                {
-                    InjectKnowledgeManually();
-                }
-                
-                if (listingStandard.ButtonText("≤Èø¥πÊ‘Ú¡–±Ì", "≤Èø¥Ω´“™◊¢»Îµƒ 7 ÷÷––Œ™πÊ‘Ú"))
-                {
-                    ShowRuleList();
-                }
-                
-                listingStandard.Gap(4f);
-                
-                // ∞Ô÷˙Ã· æ
-                GUI.color = new Color(1f, 1f, 0.7f);
-                listingStandard.Label("Ã· æ£∫≥£ ∂ø‚ «¥Êµµº∂±µƒ ˝æ›");
-                listingStandard.Label("? √ø¥Œº”‘ÿ–¬¥Êµµ∫Û–Ë“™÷ÿ–¬◊¢»Î");
-                listingStandard.Label("? ◊¢»Î∫ÛπÊ‘ÚΩ´”¿æ√±£¥Ê‘⁄∏√¥Êµµ÷–");
-                GUI.color = Color.white;
-                
-                listingStandard.Gap();
-                
-                // === ––Œ™…Ë÷√£®ø…’€µ˛£© ===
-                Rect behaviorHeaderRect = listingStandard.GetRect(30f);
-                if (Widgets.ButtonText(behaviorHeaderRect, showBehaviorSettings ? "®ã ––Œ™ø™πÿ" : "? ––Œ™ø™πÿ"))
-                {
-                    showBehaviorSettings = !showBehaviorSettings;
-                }
-                
-                if (showBehaviorSettings)
-                {
-                    listingStandard.Gap(6f);
-                    listingStandard.Indent(20f);
-                    
-                    listingStandard.CheckboxLabeled("’–ƒºœµÕ≥", ref Settings.enableRecruit,
-                        "Õ®π˝∂‘ª∞’–ƒº NPC µΩ÷≥√Òµÿ");
-                    
-                    listingStandard.CheckboxLabeled("…ÁΩª”√≤Õ", ref Settings.enableSocialDining,
-                        "—˚«ÎÀ˚»Àπ≤Ω¯ÕÌ≤Õ£¨‘ˆΩ¯πÿœµ");
-                    
-                    listingStandard.CheckboxLabeled("Õ∂Ωµ/∂™Œ‰∆˜", ref Settings.enableDropWeapon,
-                        "»√µ–»À∑≈œ¬Œ‰∆˜Õ∂Ωµ");
-                    
-                    listingStandard.CheckboxLabeled("¡µ∞Æπÿœµ", ref Settings.enableRomance,
-                        "Ω®¡¢ªÚΩ· ¯¡µ»Àπÿœµ");
-                    
-                    listingStandard.CheckboxLabeled("¡È∏–¥•∑¢", ref Settings.enableInspiration,
-                        "∏¯”ËΩ«…´π§◊˜/’Ω∂∑/Ωª“◊¡È∏–");
-                    
-                    listingStandard.CheckboxLabeled("«ø÷∆–›œ¢", ref Settings.enableRest,
-                        "»√Ω«…´»•–›œ¢ªÚœ›»ÎªË√‘");
-                    
-                    listingStandard.CheckboxLabeled("‘˘ÀÕŒÔ∆∑", ref Settings.enableGift,
-                        "¥”±≥∞¸÷–‘˘ÀÕŒÔ∆∑∏¯À˚»À");
-                    
-                    listingStandard.CheckboxLabeled("…ÁΩª∑≈À…", ref Settings.enableSocialRelax,
-                        "÷∏¡Ó∂‡∏ˆ–°»ÀΩ¯––…ÁΩª∑≈À…ªÓ∂Ø");
-                    
-                    listingStandard.Outdent(20f);
-                }
-                
-                listingStandard.Gap();
-                
-                // === ≥…π¶¬ …Ë÷√£®ø…’€µ˛£© ===
-                Rect successRateHeaderRect = listingStandard.GetRect(30f);
-                if (Widgets.ButtonText(successRateHeaderRect, showSuccessRateSettings ? "®ã ≥…π¶¬ …Ë÷√" : "? ≥…π¶¬ …Ë÷√"))
-                {
-                    showSuccessRateSettings = !showSuccessRateSettings;
-                }
-                
-                if (showSuccessRateSettings)
-                {
-                    listingStandard.Gap(6f);
-                    listingStandard.Indent(20f);
-                    
-                    listingStandard.Label($"’–ƒº≥…π¶¬ : {Settings.recruitSuccessChance:P0}");
-                    Settings.recruitSuccessChance = listingStandard.Slider(Settings.recruitSuccessChance, 0f, 1f);
-                    
-                    listingStandard.Label($"…ÁΩª”√≤Õ≥…π¶¬ : {Settings.socialDiningSuccessChance:P0}");
-                    Settings.socialDiningSuccessChance = listingStandard.Slider(Settings.socialDiningSuccessChance, 0f, 1f);
-                    
-                    listingStandard.Label($"Õ∂Ωµ≥…π¶¬ : {Settings.dropWeaponSuccessChance:P0}");
-                    Settings.dropWeaponSuccessChance = listingStandard.Slider(Settings.dropWeaponSuccessChance, 0f, 1f);
-                    
-                    listingStandard.Label($"¡µ∞Æ≥…π¶¬ : {Settings.romanceSuccessChance:P0}");
-                    Settings.romanceSuccessChance = listingStandard.Slider(Settings.romanceSuccessChance, 0f, 1f);
-                    
-                    listingStandard.Label($"¡È∏–≥…π¶¬ : {Settings.inspirationSuccessChance:P0}");
-                    Settings.inspirationSuccessChance = listingStandard.Slider(Settings.inspirationSuccessChance, 0f, 1f);
-                    
-                    listingStandard.Label($"–›œ¢≥…π¶¬ : {Settings.restSuccessChance:P0}");
-                    Settings.restSuccessChance = listingStandard.Slider(Settings.restSuccessChance, 0f, 1f);
-                    
-                    listingStandard.Label($"‘˘ÀÕ≥…π¶¬ : {Settings.giftSuccessChance:P0}");
-                    Settings.giftSuccessChance = listingStandard.Slider(Settings.giftSuccessChance, 0f, 1f);
-                    
-                    listingStandard.Label($"…ÁΩª∑≈À…≥…π¶¬ : {Settings.socialRelaxSuccessChance:P0}");
-                    Settings.socialRelaxSuccessChance = listingStandard.Slider(Settings.socialRelaxSuccessChance, 0f, 1f);
-                    
-                    listingStandard.Outdent(20f);
-                }
-                
-                listingStandard.Gap();
-                
-                // === ∆‰À˚≤Ÿ◊˜ ===
-                listingStandard.Label("©•©•©• ∆‰À˚≤Ÿ◊˜ ©•©•©•");
-                listingStandard.Gap(6f);
-                
-                if (listingStandard.ButtonText("÷ÿ÷√Œ™ƒ¨»œ÷µ"))
+                if (Widgets.ButtonText(new Rect(0f, y, 150f, 28f), "ÈáçÁΩÆ‰∏∫ÈªòËÆ§ÂÄº"))
                 {
                     Settings.ResetToDefault();
-                    Messages.Message("…Ë÷√“—÷ÿ÷√Œ™ƒ¨»œ÷µ", MessageTypeDefOf.NeutralEvent);
+                }
+                y += 28f + sectionGap;
+                
+                // ============ AI ÊÑèÂõæËØÜÂà´ËÆæÁΩÆ ============
+                Widgets.Label(new Rect(0f, y, width, lineHeight), "== AI ÊÑèÂõæËØÜÂà´ËÆæÁΩÆ ==");
+                y += lineHeight + gap;
+                Widgets.DrawLineHorizontal(0f, y, width);
+                y += gap;
+                
+                Widgets.Label(new Rect(0f, y, 200f, lineHeight), $"NLU ÊúÄ‰ΩéÁΩÆ‰ø°Â∫¶: {Settings.nluMinConfidence:P0}");
+                Settings.nluMinConfidence = Widgets.HorizontalSlider(new Rect(200f, y + 4f, sliderWidth, lineHeight), Settings.nluMinConfidence, 0.1f, 1.0f);
+                y += lineHeight + gap;
+                
+                Widgets.Label(new Rect(0f, y, 200f, lineHeight), $"NLU Âª∂ËøüÂÄçÁéá: {Settings.nluDelayMultiplier:F1}x");
+                Settings.nluDelayMultiplier = Widgets.HorizontalSlider(new Rect(200f, y + 4f, sliderWidth, lineHeight), Settings.nluDelayMultiplier, 0.5f, 3.0f);
+                y += lineHeight + sectionGap;
+                
+                // ============ ËΩªÈáèÁ∫ß LLM ËÆæÁΩÆ ============
+                Widgets.Label(new Rect(0f, y, width, lineHeight), "== ËΩªÈáèÁ∫ß LLM Á°ÆËÆ§ ==");
+                y += lineHeight + gap;
+                Widgets.DrawLineHorizontal(0f, y, width);
+                y += gap;
+                
+                Widgets.CheckboxLabeled(new Rect(0f, y, width, lineHeight), "ÂêØÁî®ËΩªÈáèÁ∫ß LLM", ref Settings.enableLightweightLLM);
+                y += lineHeight;
+                
+                if (Settings.enableLightweightLLM)
+                {
+                    Widgets.Label(new Rect(0f, y, 80f, lineHeight), "API URL:");
+                    Settings.lightweightLLMApiUrl = Widgets.TextField(new Rect(90f, y, width - 90f, lineHeight), Settings.lightweightLLMApiUrl ?? "");
+                    y += lineHeight + gap;
+                    
+                    Widgets.Label(new Rect(0f, y, 80f, lineHeight), "API Key:");
+                    Settings.lightweightLLMApiKey = Widgets.TextField(new Rect(90f, y, width - 90f, lineHeight), Settings.lightweightLLMApiKey ?? "");
+                    y += lineHeight + gap;
+                    
+                    Widgets.Label(new Rect(0f, y, 80f, lineHeight), "Ê®°ÂûãÂêçÁß∞:");
+                    Settings.lightweightLLMModel = Widgets.TextField(new Rect(90f, y, width - 90f, lineHeight), Settings.lightweightLLMModel ?? "");
+                    y += lineHeight;
+                }
+                y += sectionGap;
+                
+                // ============ ÂêëÈáèÊúçÂä°ËÆæÁΩÆ ============
+                Widgets.Label(new Rect(0f, y, width, lineHeight), "== ÂêëÈáèÊúçÂä°ËÆæÁΩÆ ==");
+                y += lineHeight + gap;
+                Widgets.DrawLineHorizontal(0f, y, width);
+                y += gap;
+                
+                Widgets.Label(new Rect(0f, y, 120f, lineHeight), "SiliconFlow Key:");
+                Settings.SiliconFlowApiKey = Widgets.TextField(new Rect(130f, y, width - 130f, lineHeight), Settings.SiliconFlowApiKey ?? "");
+                y += lineHeight + gap;
+                
+                Widgets.Label(new Rect(0f, y, 120f, lineHeight), "ÂµåÂÖ• API URL:");
+                Settings.embeddingApiUrl = Widgets.TextField(new Rect(130f, y, width - 130f, lineHeight), Settings.embeddingApiUrl ?? "");
+                y += lineHeight + gap;
+                
+                Widgets.Label(new Rect(0f, y, 120f, lineHeight), "ÂµåÂÖ•Ê®°Âûã:");
+                Settings.embeddingModel = Widgets.TextField(new Rect(130f, y, width - 130f, lineHeight), Settings.embeddingModel ?? "");
+                y += lineHeight + sectionGap;
+                
+                // ============ Êâ©Â±ïË°å‰∏∫ÂºÄÂÖ≥ ============
+                Widgets.Label(new Rect(0f, y, width, lineHeight), "== Êâ©Â±ïË°å‰∏∫ÂºÄÂÖ≥ ==");
+                y += lineHeight + gap;
+                Widgets.DrawLineHorizontal(0f, y, width);
+                y += gap;
+                
+                Widgets.CheckboxLabeled(new Rect(0f, y, width, lineHeight), "ÂêØÁî®ÊãõÂãüË°å‰∏∫", ref Settings.enableRecruit);
+                y += lineHeight;
+                Widgets.CheckboxLabeled(new Rect(0f, y, width, lineHeight), "ÂêØÁî®Áº¥Ê¢∞Ë°å‰∏∫", ref Settings.enableDropWeapon);
+                y += lineHeight;
+                Widgets.CheckboxLabeled(new Rect(0f, y, width, lineHeight), "ÂêØÁî®Ê±ÇÁà±Ë°å‰∏∫", ref Settings.enableRomance);
+                y += lineHeight;
+                Widgets.CheckboxLabeled(new Rect(0f, y, width, lineHeight), "ÂêØÁî®ÁÅµÊÑüË°å‰∏∫", ref Settings.enableInspiration);
+                y += lineHeight;
+                Widgets.CheckboxLabeled(new Rect(0f, y, width, lineHeight), "ÂêØÁî®‰ºëÊÅØË°å‰∏∫", ref Settings.enableRest);
+                y += lineHeight;
+                Widgets.CheckboxLabeled(new Rect(0f, y, width, lineHeight), "ÂêØÁî®ÈÄÅÁ§ºË°å‰∏∫", ref Settings.enableGift);
+                y += lineHeight;
+                Widgets.CheckboxLabeled(new Rect(0f, y, width, lineHeight), "ÂêØÁî®Á§æ‰∫§Áî®È§ê", ref Settings.enableSocialDining);
+                y += lineHeight;
+                Widgets.CheckboxLabeled(new Rect(0f, y, width, lineHeight), "ÂêØÁî®Á§æ‰∫§ÊîæÊùæ", ref Settings.enableSocialRelax);
+                y += lineHeight + sectionGap;
+                
+                // ============ ÊàêÂäüÁéáË∞ÉÊï¥ ============
+                Widgets.Label(new Rect(0f, y, width, lineHeight), "== ÊàêÂäüÁéáË∞ÉÊï¥ ==");
+                y += lineHeight + gap;
+                Widgets.DrawLineHorizontal(0f, y, width);
+                y += gap;
+                
+                Widgets.Label(new Rect(0f, y, 200f, lineHeight), $"ÊãõÂãüÊàêÂäüÁéá: {Settings.recruitSuccessChance:P0}");
+                Settings.recruitSuccessChance = Widgets.HorizontalSlider(new Rect(200f, y + 4f, sliderWidth, lineHeight), Settings.recruitSuccessChance, 0f, 1f);
+                y += lineHeight + gap;
+                
+                Widgets.Label(new Rect(0f, y, 200f, lineHeight), $"Áº¥Ê¢∞ÊàêÂäüÁéá: {Settings.dropWeaponSuccessChance:P0}");
+                Settings.dropWeaponSuccessChance = Widgets.HorizontalSlider(new Rect(200f, y + 4f, sliderWidth, lineHeight), Settings.dropWeaponSuccessChance, 0f, 1f);
+                y += lineHeight + gap;
+                
+                Widgets.Label(new Rect(0f, y, 200f, lineHeight), $"Ê±ÇÁà±ÊàêÂäüÁéá: {Settings.romanceSuccessChance:P0}");
+                Settings.romanceSuccessChance = Widgets.HorizontalSlider(new Rect(200f, y + 4f, sliderWidth, lineHeight), Settings.romanceSuccessChance, 0f, 1f);
+                y += lineHeight + gap;
+                
+                Widgets.Label(new Rect(0f, y, 200f, lineHeight), $"ÁÅµÊÑüÊàêÂäüÁéá: {Settings.inspirationSuccessChance:P0}");
+                Settings.inspirationSuccessChance = Widgets.HorizontalSlider(new Rect(200f, y + 4f, sliderWidth, lineHeight), Settings.inspirationSuccessChance, 0f, 1f);
+                y += lineHeight + gap;
+                
+                Widgets.Label(new Rect(0f, y, 200f, lineHeight), $"‰ºëÊÅØÊàêÂäüÁéá: {Settings.restSuccessChance:P0}");
+                Settings.restSuccessChance = Widgets.HorizontalSlider(new Rect(200f, y + 4f, sliderWidth, lineHeight), Settings.restSuccessChance, 0f, 1f);
+                y += lineHeight + gap;
+                
+                Widgets.Label(new Rect(0f, y, 200f, lineHeight), $"ÈÄÅÁ§ºÊàêÂäüÁéá: {Settings.giftSuccessChance:P0}");
+                Settings.giftSuccessChance = Widgets.HorizontalSlider(new Rect(200f, y + 4f, sliderWidth, lineHeight), Settings.giftSuccessChance, 0f, 1f);
+                y += lineHeight + gap;
+                
+                Widgets.Label(new Rect(0f, y, 200f, lineHeight), $"Á§æ‰∫§Áî®È§êÊàêÂäüÁéá: {Settings.socialDiningSuccessChance:P0}");
+                Settings.socialDiningSuccessChance = Widgets.HorizontalSlider(new Rect(200f, y + 4f, sliderWidth, lineHeight), Settings.socialDiningSuccessChance, 0f, 1f);
+                y += lineHeight + gap;
+                
+                Widgets.Label(new Rect(0f, y, 200f, lineHeight), $"Á§æ‰∫§ÊîæÊùæÊàêÂäüÁéá: {Settings.socialRelaxSuccessChance:P0}");
+                Settings.socialRelaxSuccessChance = Widgets.HorizontalSlider(new Rect(200f, y + 4f, sliderWidth, lineHeight), Settings.socialRelaxSuccessChance, 0f, 1f);
+                y += lineHeight + sectionGap;
+                
+                // ============ Ëá™Âä®Ëß¶ÂèëËÆæÁΩÆ ============
+                Widgets.Label(new Rect(0f, y, width, lineHeight), "== Ëá™Âä®Ëß¶ÂèëËÆæÁΩÆ ==");
+                y += lineHeight + gap;
+                Widgets.DrawLineHorizontal(0f, y, width);
+                y += gap;
+                
+                int jobCount = Settings.enabledJobTriggers?.Count ?? 0;
+                Widgets.Label(new Rect(0f, y, width, lineHeight), $"Â∑≤ÈÖçÁΩÆÁöÑËß¶Âèë Job Êï∞Èáè: {jobCount}");
+                y += lineHeight;
+                Widgets.Label(new Rect(0f, y, width, lineHeight), "ÂΩìÂ∞è‰∫∫ÂºÄÂßãÈÄâÂÆöÁöÑ Job Êó∂Ôºå‰ºöËá™Âä®Ëß¶ÂèëÂØπËØù");
+                y += lineHeight + gap;
+                
+                // Âè™Âú®Ê∏∏ÊàèÂÜÖÔºàÊúâ WindowStackÔºâÊó∂ÊòæÁ§∫ÊâìÂºÄÁ™óÂè£ÊåâÈíÆ
+                if (Find.WindowStack != null)
+                {
+                    if (Widgets.ButtonText(new Rect(0f, y, 200f, 28f), "ÊâìÂºÄ Job Ëß¶ÂèëÂô®ÈÖçÁΩÆÁ™óÂè£"))
+                    {
+                        try
+                        {
+                            Find.WindowStack.Add(new UI.Window_JobTriggerSettings());
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error($"[RimTalk-ExpandActions] Êó†Ê≥ïÊâìÂºÄ Job ÈÖçÁΩÆÁ™óÂè£: {ex.Message}");
+                        }
+                    }
+                }
+                else
+                {
+                    Widgets.Label(new Rect(0f, y, width, lineHeight), "(ËØ∑Âú®Ê∏∏ÊàèÂÜÖÊâìÂºÄ Job Ëß¶ÂèëÂô®ÈÖçÁΩÆÁ™óÂè£)");
+                }
+                y += 28f + gap;
+                
+                // ÊòæÁ§∫Â∑≤ÂêØÁî®ÁöÑ Job ÂàóË°®ÔºàÂâç10‰∏™Ôºâ
+                if (Settings.enabledJobTriggers != null && Settings.enabledJobTriggers.Count > 0)
+                {
+                    Widgets.Label(new Rect(0f, y, width, lineHeight), "Â∑≤ÂêØÁî®ÁöÑ Job:");
+                    y += lineHeight;
+                    
+                    int displayCount = Math.Min(Settings.enabledJobTriggers.Count, 10);
+                    for (int i = 0; i < displayCount; i++)
+                    {
+                        Widgets.Label(new Rect(10f, y, width - 10f, lineHeight), $"‚Ä¢ {Settings.enabledJobTriggers[i]}");
+                        y += lineHeight;
+                    }
+                    if (Settings.enabledJobTriggers.Count > 10)
+                    {
+                        Widgets.Label(new Rect(10f, y, width - 10f, lineHeight), $"... ËøòÊúâ {Settings.enabledJobTriggers.Count - 10} ‰∏™");
+                        y += lineHeight;
+                    }
+                    y += gap;
+                    
+                    if (Widgets.ButtonText(new Rect(0f, y, 150f, 28f), "Ê∏ÖÈô§ÊâÄÊúâÈÖçÁΩÆ"))
+                    {
+                        Settings.enabledJobTriggers.Clear();
+                    }
                 }
                 
-                listingStandard.Gap();
-                GUI.color = Color.gray;
-                listingStandard.Label("Ã· æ£∫–ﬁ∏ƒ…Ë÷√∫Ûª·◊‘∂Ø±£¥Ê");
-                GUI.color = Color.white;
-                
-                listingStandard.End();
                 Widgets.EndScrollView();
             }
             catch (Exception ex)
             {
-                Log.Error($"[RimTalk-ExpandActions] …Ë÷√ΩÁ√Ê¥ÌŒÛ: {ex.Message}\n{ex.StackTrace}");
+                Log.Error($"[RimTalk-ExpandActions] ËÆæÁΩÆÁïåÈù¢ÈîôËØØ: {ex}");
             }
-        }
-
-        private void InjectKnowledgeManually()
-        {
-            try
-            {
-                var result = Memory.Utils.ExpandMemoryKnowledgeInjector.ManualInject();
-                
-                if (result.Success)
-                {
-                    string detailedMessage = $"≥…π¶µº»Î {result.InjectedRules} ÃıπÊ‘Ú£∫\n\n";
-                    var rules = Memory.Utils.ExpandMemoryKnowledgeInjector.GetRuleDescriptions();
-                    
-                    foreach (var ruleName in result.InjectedRuleNames)
-                    {
-                        if (rules.ContainsKey(ruleName))
-                        {
-                            detailedMessage += $"? {ruleName}\n  {rules[ruleName]}\n\n";
-                        }
-                    }
-                    
-                    Messages.Message(
-                        $"RimTalk-ExpandActions: “—≥…π¶µº»Î {result.InjectedRules} Ãı––Œ™πÊ‘ÚµΩµ±«∞¥Êµµ£°",
-                        MessageTypeDefOf.PositiveEvent,
-                        false
-                    );
-                    
-                    Log.Message($"[RimTalk-ExpandActions] ”√ªß ÷∂Ø◊¢»Î≥…π¶");
-                    Log.Message(detailedMessage);
-                }
-                else
-                {
-                    Messages.Message(
-                        $"◊¢»Î ß∞‹: {result.ErrorMessage}",
-                        MessageTypeDefOf.RejectInput,
-                        false
-                    );
-                    Log.Warning($"[RimTalk-ExpandActions] ”√ªß ÷∂Ø◊¢»Î ß∞‹: {result.ErrorMessage}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"[RimTalk-ExpandActions]  ÷∂Ø◊¢»Î“Ï≥£: {ex.Message}");
-                Messages.Message("◊¢»Î ß∞‹£¨«Î≤Èø¥»’÷æ", MessageTypeDefOf.RejectInput);
-            }
-        }
-
-        private void ShowRuleList()
-        {
-            var rules = Memory.Utils.ExpandMemoryKnowledgeInjector.GetRuleDescriptions();
-            string rulesList = "Ω´◊¢»Î“‘œ¬ 7 ÷÷––Œ™πÊ‘Ú£∫\n\n";
-            
-            int index = 1;
-            foreach (var rule in rules)
-            {
-                rulesList += $"{index}. {rule.Key}\n   {rule.Value}\n\n";
-                index++;
-            }
-            
-            Find.WindowStack.Add(new Dialog_MessageBox(rulesList));
         }
 
         public override void WriteSettings()
         {
             base.WriteSettings();
-            Log.Message("[RimTalk-ExpandActions] …Ë÷√“—±£¥Ê");
         }
     }
 
-    /// <summary>
-    /// RimTalk-ExpandActions Mod …Ë÷√ ˝æ›
-    /// </summary>
     public class RimTalkExpandActionsSettings : ModSettings
     {
-        // ===== »´æ÷…Ë÷√ =====
-        
-        /// <summary>
-        ///  «∑Ò‘⁄”Œœ∑÷–œ‘ æ––Œ™¥•∑¢Ã· æ
-        /// </summary>
         public bool showActionMessages = true;
-
-        /// <summary>
-        ///  «∑Òœ‘ æœÍœ∏»’÷æ
-        /// </summary>
         public bool enableDetailedLogging = false;
 
-        // ===== ––Œ™ø™πÿ =====
+        public float nluMinConfidence = 0.4f;
+        public float nluDelayMultiplier = 1.0f;
+
+        public bool enableLightweightLLM = false;
+        public string lightweightLLMApiUrl = "";
+        public string lightweightLLMApiKey = "";
+        public string lightweightLLMModel = "";
+
+        public string SiliconFlowApiKey = "";
+        public string embeddingApiUrl = "";
+        public string embeddingModel = "";
+        
+        public string GetEmbeddingApiUrl() => string.IsNullOrWhiteSpace(embeddingApiUrl) ? null : embeddingApiUrl;
+        public string GetEmbeddingModel() => string.IsNullOrWhiteSpace(embeddingModel) ? null : embeddingModel;
 
         public bool enableRecruit = true;
         public bool enableDropWeapon = true;
@@ -301,9 +292,7 @@ namespace RimTalkExpandActions
         public bool enableRest = true;
         public bool enableGift = true;
         public bool enableSocialDining = true;
-        public bool enableSocialRelax = true;  // –¬‘ˆ£∫…ÁΩª∑≈À…
-
-        // ===== ≥…π¶ƒ—∂»œµ ˝ (0.0 - 1.0) =====
+        public bool enableSocialRelax = true;
 
         public float recruitSuccessChance = 1.0f;
         public float dropWeaponSuccessChance = 1.0f;
@@ -312,17 +301,28 @@ namespace RimTalkExpandActions
         public float restSuccessChance = 1.0f;
         public float giftSuccessChance = 1.0f;
         public float socialDiningSuccessChance = 1.0f;
-        public float socialRelaxSuccessChance = 1.0f;  // –¬‘ˆ£∫…ÁΩª∑≈À…≥…π¶¬ 
+        public float socialRelaxSuccessChance = 1.0f;
+
+        public List<string> enabledJobTriggers = new List<string>();
 
         public override void ExposeData()
         {
             base.ExposeData();
-            
-            // »´æ÷…Ë÷√
             Scribe_Values.Look(ref showActionMessages, "showActionMessages", true);
             Scribe_Values.Look(ref enableDetailedLogging, "enableDetailedLogging", false);
+            
+            Scribe_Values.Look(ref nluMinConfidence, "nluMinConfidence", 0.4f);
+            Scribe_Values.Look(ref nluDelayMultiplier, "nluDelayMultiplier", 1.0f);
 
-            // ––Œ™ø™πÿ
+            Scribe_Values.Look(ref enableLightweightLLM, "enableLightweightLLM", false);
+            Scribe_Values.Look(ref lightweightLLMApiUrl, "lightweightLLMApiUrl", "");
+            Scribe_Values.Look(ref lightweightLLMApiKey, "lightweightLLMApiKey", "");
+            Scribe_Values.Look(ref lightweightLLMModel, "lightweightLLMModel", "");
+
+            Scribe_Values.Look(ref SiliconFlowApiKey, "SiliconFlowApiKey", "");
+            Scribe_Values.Look(ref embeddingApiUrl, "embeddingApiUrl", "");
+            Scribe_Values.Look(ref embeddingModel, "embeddingModel", "");
+
             Scribe_Values.Look(ref enableRecruit, "enableRecruit", true);
             Scribe_Values.Look(ref enableDropWeapon, "enableDropWeapon", true);
             Scribe_Values.Look(ref enableRomance, "enableRomance", true);
@@ -332,7 +332,6 @@ namespace RimTalkExpandActions
             Scribe_Values.Look(ref enableSocialDining, "enableSocialDining", true);
             Scribe_Values.Look(ref enableSocialRelax, "enableSocialRelax", true);
 
-            // ≥…π¶ƒ—∂»œµ ˝
             Scribe_Values.Look(ref recruitSuccessChance, "recruitSuccessChance", 1.0f);
             Scribe_Values.Look(ref dropWeaponSuccessChance, "dropWeaponSuccessChance", 1.0f);
             Scribe_Values.Look(ref romanceSuccessChance, "romanceSuccessChance", 1.0f);
@@ -341,16 +340,24 @@ namespace RimTalkExpandActions
             Scribe_Values.Look(ref giftSuccessChance, "giftSuccessChance", 1.0f);
             Scribe_Values.Look(ref socialDiningSuccessChance, "socialDiningSuccessChance", 1.0f);
             Scribe_Values.Look(ref socialRelaxSuccessChance, "socialRelaxSuccessChance", 1.0f);
+            
+            Scribe_Collections.Look(ref enabledJobTriggers, "enabledJobTriggers", LookMode.Value);
+            if (enabledJobTriggers == null) enabledJobTriggers = new List<string>();
         }
 
-        /// <summary>
-        /// ÷ÿ÷√Œ™ƒ¨»œ÷µ
-        /// </summary>
         public void ResetToDefault()
         {
             showActionMessages = true;
             enableDetailedLogging = false;
-
+            nluMinConfidence = 0.4f;
+            nluDelayMultiplier = 1.0f;
+            enableLightweightLLM = false;
+            lightweightLLMApiUrl = "";
+            lightweightLLMApiKey = "";
+            lightweightLLMModel = "";
+            SiliconFlowApiKey = "";
+            embeddingApiUrl = "";
+            embeddingModel = "";
             enableRecruit = true;
             enableDropWeapon = true;
             enableRomance = true;
@@ -359,7 +366,6 @@ namespace RimTalkExpandActions
             enableGift = true;
             enableSocialDining = true;
             enableSocialRelax = true;
-
             recruitSuccessChance = 1.0f;
             dropWeaponSuccessChance = 1.0f;
             romanceSuccessChance = 1.0f;
@@ -368,71 +374,38 @@ namespace RimTalkExpandActions
             giftSuccessChance = 1.0f;
             socialDiningSuccessChance = 1.0f;
             socialRelaxSuccessChance = 1.0f;
+            enabledJobTriggers.Clear();
         }
 
-        /// <summary>
-        /// ºÏ≤È÷∏∂®––Œ™ «∑Ò∆Ù”√
-        /// </summary>
         public bool IsActionEnabled(string actionType)
         {
             switch (actionType?.ToLower())
             {
-                case "recruit":
-                    return enableRecruit;
-                case "drop_weapon":
-                    return enableDropWeapon;
-                case "romance":
-                    return enableRomance;
-                case "give_inspiration":
-                case "inspiration":
-                    return enableInspiration;
-                case "force_rest":
-                case "rest":
-                    return enableRest;
-                case "give_item":
-                case "gift":
-                    return enableGift;
-                case "social_dining":
-                case "dining":
-                    return enableSocialDining;
-                case "social_relax":
-                case "relax":
-                    return enableSocialRelax;
-                default:
-                    return true;
+                case "recruit": return enableRecruit;
+                case "drop_weapon": return enableDropWeapon;
+                case "romance": return enableRomance;
+                case "give_inspiration": case "inspiration": return enableInspiration;
+                case "force_rest": case "rest": return enableRest;
+                case "give_item": case "gift": return enableGift;
+                case "social_dining": case "dining": return enableSocialDining;
+                case "social_relax": case "relax": return enableSocialRelax;
+                default: return true;
             }
         }
 
-        /// <summary>
-        /// ªÒ»°÷∏∂®––Œ™µƒ≥…π¶¬ 
-        /// </summary>
         public float GetSuccessChance(string actionType)
         {
             switch (actionType?.ToLower())
             {
-                case "recruit":
-                    return recruitSuccessChance;
-                case "drop_weapon":
-                    return dropWeaponSuccessChance;
-                case "romance":
-                    return romanceSuccessChance;
-                case "give_inspiration":
-                case "inspiration":
-                    return inspirationSuccessChance;
-                case "force_rest":
-                case "rest":
-                    return restSuccessChance;
-                case "give_item":
-                case "gift":
-                    return giftSuccessChance;
-                case "social_dining":
-                case "dining":
-                    return socialDiningSuccessChance;
-                case "social_relax":
-                case "relax":
-                    return socialRelaxSuccessChance;
-                default:
-                    return 1.0f;
+                case "recruit": return recruitSuccessChance;
+                case "drop_weapon": return dropWeaponSuccessChance;
+                case "romance": return romanceSuccessChance;
+                case "give_inspiration": case "inspiration": return inspirationSuccessChance;
+                case "force_rest": case "rest": return restSuccessChance;
+                case "give_item": case "gift": return giftSuccessChance;
+                case "social_dining": case "dining": return socialDiningSuccessChance;
+                case "social_relax": case "relax": return socialRelaxSuccessChance;
+                default: return 1.0f;
             }
         }
     }
